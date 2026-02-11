@@ -13,3 +13,4 @@ export interface User {
 }
 
 export * from './types/item';
+export * from './types/booking';
