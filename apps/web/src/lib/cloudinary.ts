@@ -1,9 +1,14 @@
-import axios from 'axios';
+/**
+ * Image upload utility using Cloudinary
+ */
 
-const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-const UPLOAD_PRESET = 'ml_default'; // We will ask user to create this or perform signed upload
+const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dqqxfdb5z';
+const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
 
-export const CloudinaryLib = {
+export const ImageLib = {
+    /**
+     * Upload image to Cloudinary
+     */
     async uploadImage(file: File): Promise<string> {
         if (!CLOUD_NAME) {
             throw new Error('Cloudinary Cloud Name is not configured');
@@ -14,14 +19,25 @@ export const CloudinaryLib = {
         formData.append('upload_preset', UPLOAD_PRESET);
 
         try {
-            const response = await axios.post(
+            const response = await fetch(
                 `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
-                formData
+                {
+                    method: 'POST',
+                    body: formData,
+                }
             );
-            return response.data.secure_url;
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Cloudinary Upload Error:', errorData);
+                throw new Error(errorData.error?.message || 'Failed to upload image');
+            }
+
+            const data = await response.json();
+            return data.secure_url;
         } catch (error: any) {
-            console.error('Cloudinary Upload Error:', error.response?.data || error.message);
-            throw new Error('Failed to upload image');
+            console.error('Image upload error:', error.message);
+            throw new Error('Failed to upload image to Cloudinary');
         }
     }
 };

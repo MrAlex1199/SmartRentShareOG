@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useRouter } from 'next/navigation';
-import { CloudinaryLib } from '@/lib/cloudinary';
+import { ImageLib } from '@/lib/cloudinary';
 import { ItemCategory, ItemCondition } from '@repo/shared';
 import Cookies from 'js-cookie';
 import { Header } from '@/components/Layout/Header';
@@ -50,9 +50,9 @@ export default function CreateItemPage() {
         setLoading(true);
 
         try {
-            // 1. Upload Images
+            // 1. Upload Images (convert to base64)
             const imageUrls = await Promise.all(
-                images.map(file => CloudinaryLib.uploadImage(file))
+                images.map(file => ImageLib.uploadImage(file))
             );
 
             // 2. Create Item

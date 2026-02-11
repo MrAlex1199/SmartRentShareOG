@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ItemCategory } from '@repo/shared';
 
 interface SearchBarProps {
@@ -11,9 +11,18 @@ export function SearchBar({ onSearch }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | undefined>();
 
+  // Trigger search whenever query or category changes
+  useEffect(() => {
+    onSearch(query, selectedCategory);
+  }, [query, selectedCategory]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSearch(query, selectedCategory);
+  };
+
+  const handleCategoryClick = (category?: ItemCategory) => {
+    setSelectedCategory(category);
   };
 
   return (
@@ -40,7 +49,7 @@ export function SearchBar({ onSearch }: SearchBarProps) {
       {/* Category Filters */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         <button
-          onClick={() => setSelectedCategory(undefined)}
+          onClick={() => handleCategoryClick(undefined)}
           className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
             !selectedCategory 
               ? 'bg-primary text-gray-900' 
@@ -52,7 +61,7 @@ export function SearchBar({ onSearch }: SearchBarProps) {
         {Object.values(ItemCategory).map((category) => (
           <button
             key={category}
-            onClick={() => setSelectedCategory(category)}
+            onClick={() => handleCategoryClick(category)}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
               selectedCategory === category 
                 ? 'bg-primary text-gray-900' 
