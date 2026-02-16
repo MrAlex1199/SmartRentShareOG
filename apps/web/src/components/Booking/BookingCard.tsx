@@ -73,15 +73,34 @@ export function BookingCard({ booking, viewType, onStatusUpdate }: BookingCardPr
           {/* Price */}
           <div className="flex items-center justify-between">
             <div className="text-sm">
-              <span className="text-gray-600">ราคารวม: </span>
-              <span className="text-lg font-bold text-gray-900">
-                ฿{booking.totalPrice.toLocaleString()}
-              </span>
-              {booking.deliveryFee && booking.deliveryFee > 0 && (
-                <span className="text-xs text-gray-500 ml-2">
-                  (รวมค่าส่ง ฿{booking.deliveryFee})
-                </span>
-              )}
+              <div className="space-y-1">
+                <div>
+                  <span className="text-gray-600">ค่าเช่า: </span>
+                  <span className="font-semibold text-gray-900">
+                    ฿{booking.totalPrice.toLocaleString()}
+                  </span>
+                </div>
+                {booking.deliveryFee && booking.deliveryFee > 0 && (
+                  <div>
+                    <span className="text-gray-600">ค่าจัดส่ง: </span>
+                    <span className="font-semibold text-gray-900">
+                      ฿{booking.deliveryFee.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-gray-600">ค่ามัดจำ: </span>
+                  <span className="font-semibold text-gray-900">
+                    ฿{(item?.deposit || 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="pt-1 border-t border-gray-200">
+                  <span className="text-gray-600">ยอดรวมทั้งหมด: </span>
+                  <span className="text-lg font-bold text-primary">
+                    ฿{(booking.totalPrice + (booking.deliveryFee || 0) + (item?.deposit || 0)).toLocaleString()}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Action Buttons */}
