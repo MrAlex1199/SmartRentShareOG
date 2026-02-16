@@ -85,10 +85,25 @@ export class BookingsService {
         }
 
         // Check if user has access to this booking
-        if (
-            booking.renter.toString() !== userId &&
-            booking.owner.toString() !== userId
-        ) {
+        // Handle both populated objects and ObjectId references
+        const renterData: any = booking.renter;
+        const ownerData: any = booking.owner;
+
+        console.log('Booking renter type:', typeof renterData);
+        console.log('Booking renter:', renterData);
+        console.log('Booking owner type:', typeof ownerData);
+        console.log('Booking owner:', ownerData);
+        console.log('User ID:', userId);
+
+        const renterId = renterData?._id ? renterData._id.toString() : renterData?.toString();
+        const ownerId = ownerData?._id ? ownerData._id.toString() : ownerData?.toString();
+
+        console.log('Renter ID:', renterId);
+        console.log('Owner ID:', ownerId);
+        console.log('Match renter?', renterId === userId);
+        console.log('Match owner?', ownerId === userId);
+
+        if (renterId !== userId && ownerId !== userId) {
             throw new ForbiddenException('You do not have access to this booking');
         }
 
