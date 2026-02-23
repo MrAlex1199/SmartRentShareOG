@@ -23,6 +23,12 @@ export class User implements Omit<UserInterface, '_id' | 'createdAt' | 'updatedA
 
     @Prop({ default: false })
     isVerified!: boolean;
+
+    @Prop({ default: 0, min: 0, max: 5 })
+    averageRating!: number;
+
+    @Prop({ default: 0 })
+    totalReviews!: number;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

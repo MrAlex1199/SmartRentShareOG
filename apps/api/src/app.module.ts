@@ -7,6 +7,10 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ItemsModule } from './items/items.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PaymentsModule } from './payments/payments.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -14,6 +18,10 @@ import { BookingsModule } from './bookings/bookings.module';
     AuthModule,
     ItemsModule,
     BookingsModule,
+    ReviewsModule,
+    NotificationsModule,
+    PaymentsModule,
+    UploadModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),

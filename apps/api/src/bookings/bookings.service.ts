@@ -1,16 +1,23 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Booking, BookingDocument, BookingStatus } from './schemas/booking.schema';
 import { CreateBookingDto, UpdateBookingStatusDto } from './dto/booking.dto';
 import { AvailabilityService } from './services/availability.service';
-import { parseISO } from 'date-fns';
+import { LineNotifyService } from '../notifications/line-notify.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { parseISO, format } from 'date-fns';
+import { th } from 'date-fns/locale';
 
 @Injectable()
 export class BookingsService {
+    private readonly logger = new Logger(BookingsService.name);
+
     constructor(
         @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
         private availabilityService: AvailabilityService,
+        private lineNotifyService: LineNotifyService,
+        private notificationsService: NotificationsService,
     ) { }
 
     /**
@@ -42,11 +49,17 @@ export class BookingsService {
         const totalPrice = itemData.dailyPrice * totalDays;
         const deliveryFee = createBookingDto.deliveryMethod === 'delivery' ? itemData.deliveryFee || 0 : 0;
 
+        // Extract owner ID - item.owner may be a populated object or an ObjectId
+        const ownerData: any = itemData.owner;
+        const ownerId = ownerData?._id ? ownerData._id.toString() : ownerData?.toString();
+
+        console.log('Creating booking with owner:', ownerId, 'renter:', renterId);
+
         // Create booking
         const booking = new this.bookingModel({
             item: createBookingDto.item,
             renter: renterId,
-            owner: itemData.owner,
+            owner: ownerId,
             startDate,
             endDate,
             totalDays,
@@ -67,7 +80,37 @@ export class BookingsService {
             ],
         });
 
-        return booking.save();
+        const savedBooking = await booking.save();
+
+        // Send LINE notification to owner
+        try {
+            const ownerUser = await this.bookingModel.db.model('User').findById(ownerId).select('lineId displayName');
+            if (ownerUser?.lineId) {
+                await this.lineNotifyService.notifyOwnerNewBooking(ownerUser.lineId, {
+                    renterName: itemData.renterName || 'ผู้เช่า',
+                    itemTitle: itemData.title,
+                    startDate: format(startDate, 'd MMM yyyy', { locale: th }),
+                    endDate: format(endDate, 'd MMM yyyy', { locale: th }),
+                    totalDays,
+                    totalPrice: totalPrice + deliveryFee,
+                });
+            }
+        } catch (err) {
+            this.logger.warn(`Failed to send LINE notification to owner: ${err}`);
+        }
+
+        // Send in-app notification to owner
+        try {
+            await this.notificationsService.notifyNewBooking(ownerId, {
+                itemTitle: itemData.title,
+                renterName: itemData.renterName || 'ผู้เช่า',
+                bookingId: savedBooking._id.toString(),
+            });
+        } catch (err) {
+            this.logger.warn(`Failed to send in-app notification to owner: ${err}`);
+        }
+
+        return savedBooking;
     }
 
     /**
@@ -125,11 +168,51 @@ export class BookingsService {
      * Get all booking requests for a user (as owner)
      */
     async findMyRequests(userId: string) {
-        return this.bookingModel
+        // First try direct owner field match
+        const directMatch = await this.bookingModel
             .find({ owner: userId })
             .populate('item')
             .populate('renter', 'displayName pictureUrl')
             .sort({ createdAt: -1 });
+
+        // Also find bookings where item belongs to this user (handles legacy data)
+        const allBookings = await this.bookingModel
+            .find({})
+            .populate('item')
+            .populate('renter', 'displayName pictureUrl')
+            .sort({ createdAt: -1 });
+
+        // Filter bookings where item.owner matches userId
+        const itemOwnerMatch = allBookings.filter((booking) => {
+            const item: any = booking.item;
+            if (!item) return false;
+            const itemOwnerId = item.owner?._id ? item.owner._id.toString() : item.owner?.toString();
+            return itemOwnerId === userId;
+        });
+
+        // Merge and deduplicate by booking ID
+        const seen = new Set<string>();
+        const merged = [...directMatch, ...itemOwnerMatch].filter((b) => {
+            const id = b._id.toString();
+            if (seen.has(id)) return false;
+            seen.add(id);
+            return true;
+        });
+
+        // Fix any bookings with wrong owner field while we're at it
+        for (const booking of itemOwnerMatch) {
+            const ownerField: any = booking.owner;
+            const currentOwnerId = ownerField?._id ? ownerField._id.toString() : ownerField?.toString();
+            if (currentOwnerId !== userId) {
+                // Fix the owner field
+                await this.bookingModel.findByIdAndUpdate(booking._id, { owner: userId });
+                console.log(`Fixed booking ${booking._id} owner field`);
+            }
+        }
+
+        return merged.sort((a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
     }
 
     /**
@@ -167,7 +250,74 @@ export class BookingsService {
             note: updateStatusDto.note,
         });
 
-        return booking.save();
+        const updatedBooking = await booking.save();
+
+        // Send LINE + in-app notifications based on new status
+        try {
+            const fullBooking = await this.bookingModel
+                .findById(id)
+                .populate('item', 'title')
+                .populate('renter', 'lineId displayName')
+                .populate('owner', 'lineId displayName');
+
+            const renter: any = fullBooking?.renter;
+            const owner: any = fullBooking?.owner;
+            const item: any = fullBooking?.item;
+            const renterId = renter?._id?.toString() || updatedBooking.renter.toString();
+            const ownerId2 = owner?._id?.toString() || updatedBooking.owner.toString();
+            const itemTitle = item?.title || 'สินค้า';
+
+            if (updateStatusDto.status === BookingStatus.CONFIRMED) {
+                // LINE
+                if (renter?.lineId) {
+                    await this.lineNotifyService.notifyRenterBookingConfirmed(renter.lineId, {
+                        itemTitle,
+                        startDate: format(new Date(updatedBooking.startDate), 'd MMM yyyy', { locale: th }),
+                        endDate: format(new Date(updatedBooking.endDate), 'd MMM yyyy', { locale: th }),
+                        ownerName: owner?.displayName || 'เจ้าของ',
+                    });
+                }
+                // In-app
+                await this.notificationsService.notifyBookingConfirmed(renterId, {
+                    itemTitle,
+                    ownerName: owner?.displayName || 'เจ้าของ',
+                    bookingId: id,
+                });
+            } else if (updateStatusDto.status === BookingStatus.REJECTED) {
+                // LINE
+                if (renter?.lineId) {
+                    await this.lineNotifyService.notifyRenterBookingRejected(renter.lineId, {
+                        itemTitle,
+                        reason: updateStatusDto.note,
+                    });
+                }
+                // In-app
+                await this.notificationsService.notifyBookingRejected(renterId, {
+                    itemTitle,
+                    reason: updateStatusDto.note,
+                    bookingId: id,
+                });
+            } else if (updateStatusDto.status === BookingStatus.CANCELLED) {
+                // LINE
+                if (owner?.lineId) {
+                    await this.lineNotifyService.notifyOwnerBookingCancelled(owner.lineId, {
+                        renterName: renter?.displayName || 'ผู้เช่า',
+                        itemTitle,
+                        startDate: format(new Date(updatedBooking.startDate), 'd MMM yyyy', { locale: th }),
+                    });
+                }
+                // In-app
+                await this.notificationsService.notifyBookingCancelled(ownerId2, {
+                    itemTitle,
+                    renterName: renter?.displayName || 'ผู้เช่า',
+                    bookingId: id,
+                });
+            }
+        } catch (err) {
+            this.logger.warn(`Failed to send notifications: ${err}`);
+        }
+
+        return updatedBooking;
     }
 
     /**
