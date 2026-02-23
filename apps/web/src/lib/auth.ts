@@ -80,10 +80,20 @@ export class AuthLib {
     }
 
     static logout() {
-        if (liff.isLoggedIn()) {
-            liff.logout();
+        try {
+            if (liff.isLoggedIn()) {
+                liff.logout();
+            }
+        } catch (e) {
+            // LIFF may not be initialized
         }
-        Cookies.remove('token');
-        window.location.reload();
+        // Remove cookie with same options it was set with
+        Cookies.remove('token', { path: '/' });
+        // Also clear via document.cookie as fallback
+        document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        // Clear any local/session storage
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/';
     }
 }

@@ -201,7 +201,9 @@ enum ItemCategory {
 
 ### Phase 3: Booking Engine & Availability Management (สัปดาห์ 5-6) ⭐⭐⭐⭐⭐
 
-**เป้าหมาย**: หัวใจของระบบเช่า - ป้องกันการจองซ้อนและจัดการ workflow
+**เป้าหมาย**: หัวใจของระบบเช่า - ป้องกันการจองซ้อนและจัดการ workflow ด้วย Escrow Model
+
+> **⚠️ UPDATED WORKFLOW (Feb 2026)** — ดู Escrow & GP section ด้านล่าง
 
 #### Week 5: Core Booking System
 - [ ] **Booking Schema**:
@@ -256,15 +258,28 @@ interface Booking {
 }
 
 enum BookingStatus {
-  PENDING = 'pending',           // รอเจ้าของยืนยัน
-  CONFIRMED = 'confirmed',       // เจ้าของยืนยันแล้ว รอชำระเงิน
-  PAID = 'paid',                 // ชำระเงินแล้ว รอรับของ
-  ACTIVE = 'active',             // กำลังเช่าอยู่
-  COMPLETED = 'completed',       // คืนของเรียบร้อย
-  CANCELLED = 'cancelled',       // ยกเลิกโดยผู้เช่า
-  REJECTED = 'rejected',         // ปฏิเสธโดยเจ้าของ
-  OVERDUE = 'overdue'           // เกินกำหนดคืน
+  PENDING = 'pending',     // รอเจ้าของยืนยัน (auto-reject 24h)
+  CONFIRMED = 'confirmed', // ยืนยันแล้ว รอผู้เช่าโอนเงิน
+  PAID = 'paid',           // เงิน hold ใน escrow รอนัดรับของ
+  ACTIVE = 'active',       // รับของสำเร็จ (ทั้งคู่ยืนยัน) กำลังเช่า
+  COMPLETED = 'completed', // คืนของสำเร็จ escrow released GP 10%
+  CANCELLED = 'cancelled', // ยกเลิก (ก่อน PAID เท่านั้น)
+  REJECTED = 'rejected',   // ปฏิเสธโดยเจ้าของ
+  OVERDUE = 'overdue'      // เกินกำหนดคืน
 }
+
+// BOOKING STATUS TRANSITION FLOW (Escrow Model — Feb 2026):
+// PENDING → CONFIRMED → PAID → ACTIVE → COMPLETED
+//        ↘ REJECTED      ↘ CANCELLED
+//
+// Booking Schema เพิ่มเติม (Feb 2026):
+// appointmentDate?        — วันเวลานัดรับของ
+// contractAgreedByRenter  — ผู้เช่า checkbox ยอมรับเงื่อนไข
+// contractAgreedByOwner   — เจ้าของ checkbox ยอมรับเงื่อนไข
+// renterConfirmedHandover — ผู้เช่ายืนยันรับของ
+// ownerConfirmedHandover  — เจ้าของยืนยันส่งของ → ACTIVE
+// renterConfirmedReturn   — ผู้เช่ายืนยันคืนของ
+// ownerConfirmedReturn    — เจ้าของยืนยันรับคืน → COMPLETED
 ```
 
 - [ ] **Availability Logic**:
@@ -413,70 +428,75 @@ interface Review {
 
 ### Phase 6: Payment & Financial Management (สัปดาห์ 9) ⭐⭐⭐
 
-**เป้าหมาย**: ระบบการเงินที่ปลอดภัยและสะดวก
+**เป้าหมาย**: ระบบการเงิน Escrow ที่ปลอดภัย พร้อม GP platform fee 10%
 
-#### Payment Integration
-- [ ] **Payment Schema**:
+> **✅ IMPLEMENTED (Feb 2026)** — Escrow model พร้อม GP 10%, Before/After photos, Digital agreement checkbox
+
+#### Payment Schema (Actual Implementation)
 ```typescript
 interface Payment {
   _id: ObjectId;
-  booking: ObjectId;        // ref: Booking
-  payer: ObjectId;          // ref: User
-  
-  amount: number;
-  paymentType: 'rental' | 'deposit' | 'delivery';
-  
-  // Payment Method
-  method: 'promptpay' | 'bank_transfer' | 'cash';
-  
-  // PromptPay Integration
-  qrCode?: string;          // Generated QR code
-  promptPayId?: string;     // Phone/ID for PromptPay
-  
-  // Verification
-  slipImage?: string;       // Uploaded payment slip
-  verificationStatus: 'pending' | 'verified' | 'rejected';
-  verifiedBy?: ObjectId;    // ref: User (admin/owner)
-  verifiedAt?: Date;
-  
-  // Refund
-  refundAmount?: number;
-  refundReason?: string;
-  refundedAt?: Date;
-  
-  createdAt: Date;
-  updatedAt: Date;
+  booking: ObjectId;          // ref: Booking
+
+  // Amounts
+  payer: ObjectId;            // ref: User (renter)
+  amount: number;             // total paid by renter (rent + deposit + delivery)
+
+  // Escrow Status
+  status: 'pending' | 'submitted' | 'verified' | 'rejected' | 'released';
+  slipImageUrl?: string;      // Cloudinary URL ของสลิป
+  slipPublicId?: string;
+  submittedAt?: Date;
+  resolvedAt?: Date;
+  escrowReleasedAt?: Date;    // เมื่อ COMPLETED + escrow released
+
+  // Platform GP (10%)
+  platformFeePercent: number; // default: 10
+  platformFeeAmount: number;  // rent × 10%
+  ownerReceivesAmount: number;// amount - platformFeeAmount
+
+  // Other
+  rejectionReason?: string;
+  promptpayAccount?: string;
 }
 ```
 
-#### Payment Features
-- [ ] **PromptPay Integration**:
-  - QR code generation
-  - Payment slip upload & verification
-  - Auto-verification with bank API (future)
-  
-- [ ] **Financial Dashboard**:
-  - Owner: Earnings, pending payments, payout history
-  - Renter: Payment history, refunds
-  - Admin: Transaction monitoring, dispute resolution
+#### ตัวอย่างการคำนวณ GP
+```
+ค่าเช่า: ฿1,000 | มัดจำ: ฿500 | ค่าส่ง: ฿50
+ผู้เช่าจ่าย:   ฿1,550 (รวมทุกอย่าง)
+Platform GP:   ฿100  (10% ของค่าเช่า ฿1,000 เท่านั้น)
+เจ้าของได้รับ: ฿1,450 (เมื่อ COMPLETED)
+มัดจำคืน:     ไม่หัก GP (คืนเต็ม ฿500 ให้เจ้าของ)
+```
 
-- [ ] **Automated Financial Processes**:
-  - Deposit hold & release
-  - Automatic refund processing
-  - Late fee calculation
-  - Revenue sharing (platform fee)
+#### New Booking Endpoints (Feb 2026)
+| Endpoint | Method | หน้าที่ |
+|----------|--------|---------|
+| `/bookings/:id/appointment` | PATCH | ตั้งวัน/เวลานัดรับของ |
+| `/bookings/:id/agree-contract` | PATCH | checkbox ยอมรับเงื่อนไข |
+| `/bookings/:id/condition-photos` | PATCH | อัปโหลด before/after photos |
+| `/bookings/:id/confirm-handover` | PATCH | ทั้งคู่ยืนยันรับของ → ACTIVE |
+| `/bookings/:id/confirm-return` | PATCH | ทั้งคู่ยืนยันคืนของ → COMPLETED + release |
 
-#### Digital Agreements
-- [ ] **Terms & Conditions System**:
-  - Dynamic rental agreements
-  - Digital signature collection
-  - Legal compliance tracking
-  - Agreement templates by category
+#### PromptPay Integration
+- QR code display ตาม PromptPay account
+- ผู้เช่าอัปโหลดสลิปผ่าน Cloudinary
+- เจ้าของ verify/reject สลิป
+- เมื่อ verified → booking เป็น PAID (escrow hold)
+
+#### Digital Agreement (Checkbox)
+- ไม่ใช้ PDF signature (ซับซ้อนเกิน)
+- ใช้ checkbox "ยอมรับเงื่อนไข" ทั้ง renter และ owner
+- บันทึก `contractAgreedByRenter` / `contractAgreedByOwner` ใน Booking schema
 
 **Deliverables**:
-- ✅ Complete payment processing system
-- ✅ Financial management tools
-- ✅ Legal compliance framework
+- ✅ Escrow payment system พร้อม GP 10%
+- ✅ Before/After condition photo upload
+- ✅ Digital agreement checkbox (both parties)
+- ✅ Appointment date/time picker
+- ✅ Owner สรุปยอดรับเงินสุทธิหลัง GP
+
 
 ### Phase 7: Performance & Optimization (สัปดาห์ 10) ⭐⭐⭐
 

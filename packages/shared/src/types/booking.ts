@@ -1,12 +1,12 @@
 export enum BookingStatus {
-    PENDING = 'pending',
-    CONFIRMED = 'confirmed',
-    PAID = 'paid',
-    ACTIVE = 'active',
-    COMPLETED = 'completed',
-    CANCELLED = 'cancelled',
-    REJECTED = 'rejected',
-    OVERDUE = 'overdue',
+    PENDING = 'pending',           // รอเจ้าของยืนยัน (24h auto-reject)
+    CONFIRMED = 'confirmed',       // ยืนยันแล้ว รอผู้เช่าชำระเงิน
+    PAID = 'paid',                 // ชำระเงินแล้ว เงิน hold ใน escrow รอนัดรับของ
+    ACTIVE = 'active',             // รับของสำเร็จ (ทั้งคู่ confirm) กำลังเช่า
+    COMPLETED = 'completed',       // คืนของสำเร็จ เงิน release — GP หัก 10%
+    CANCELLED = 'cancelled',       // ยกเลิก (ก่อน PAID)
+    REJECTED = 'rejected',         // ปฏิเสธโดยเจ้าของ
+    OVERDUE = 'overdue',           // เกินกำหนดคืน
 }
 
 export enum DeliveryMethod {
@@ -28,9 +28,9 @@ export interface BookingItemCondition {
 
 export interface Booking {
     _id: string;
-    item: string | any; // Can be populated
-    renter: string | any; // Can be populated
-    owner: string | any; // Can be populated
+    item: string | any;
+    renter: string | any;
+    owner: string | any;
 
     // Rental Period
     startDate: string;
@@ -52,7 +52,22 @@ export interface Booking {
     deliveryAddress?: string;
     pickupLocation?: string;
 
-    // Documentation
+    // Appointment
+    appointmentDate?: string;
+
+    // Digital Agreement
+    contractAgreedByRenter: boolean;
+    contractAgreedByOwner: boolean;
+
+    // Handover Confirmation
+    renterConfirmedHandover: boolean;
+    ownerConfirmedHandover: boolean;
+
+    // Return Confirmation
+    renterConfirmedReturn: boolean;
+    ownerConfirmedReturn: boolean;
+
+    // Item Condition
     itemConditionBefore?: BookingItemCondition;
     itemConditionAfter?: BookingItemCondition;
 

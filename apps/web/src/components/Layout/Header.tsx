@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Cookies from 'js-cookie';
 import { AuthLib } from '@/lib/auth';
+import { NotificationBell } from '@/components/Notifications/NotificationBell';
 
 interface UserProfile {
   displayName: string;
@@ -58,8 +59,10 @@ export function Header() {
   };
 
   const handleLogout = () => {
-    Cookies.remove('token');
-    window.location.href = '/';
+    setIsAuthenticated(false);
+    setUserProfile(null);
+    setShowDropdown(false);
+    AuthLib.logout();
   };
 
   return (
@@ -130,6 +133,9 @@ export function Header() {
                       + ลงประกาศ
                     </Link>
 
+                    {/* Notification Bell */}
+                    <NotificationBell />
+
                     {/* User Profile Dropdown */}
                     <div className="relative ml-2">
                       <button
@@ -163,7 +169,7 @@ export function Header() {
                           />
                           <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-20">                            
                             <Link
-                              href="/dashboard"
+                              href="/profile"
                               className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                               onClick={() => setShowDropdown(false)}
                             >
