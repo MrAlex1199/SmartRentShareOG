@@ -4,10 +4,13 @@ import {
     OnGatewayConnection,
     OnGatewayDisconnect,
     SubscribeMessage,
+    MessageBody,
+    ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { MessagesService } from '../messages/messages.service';
 
 @WebSocketGateway({
     cors: {
@@ -21,10 +24,13 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     server!: Server;
 
     private readonly logger = new Logger(NotificationsGateway.name);
-    // Map userId → Set of socket IDs (user can have multiple tabs)
+    // Map userId → Set of socket IDs
     private userSockets = new Map<string, Set<string>>();
 
-    constructor(private jwtService: JwtService) { }
+    constructor(
+        private jwtService: JwtService,
+        private messagesService: MessagesService,
+    ) { }
 
     async handleConnection(client: Socket) {
         try {
@@ -33,7 +39,6 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
                 client.handshake.headers?.authorization?.replace('Bearer ', '');
 
             if (!token) {
-                this.logger.warn(`Client ${client.id} connected without token. Disconnecting.`);
                 client.disconnect();
                 return;
             }
@@ -41,19 +46,16 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
             const payload = this.jwtService.verify(token);
             const userId = payload.sub;
 
-            // Store socket mapping
             if (!this.userSockets.has(userId)) {
                 this.userSockets.set(userId, new Set());
             }
             this.userSockets.get(userId)!.add(client.id);
 
-            // Join personal room
             client.join(`user:${userId}`);
             client.data.userId = userId;
 
             this.logger.log(`User ${userId} connected (socket: ${client.id})`);
-        } catch (err) {
-            this.logger.warn(`Connection rejected: invalid token (${err})`);
+        } catch {
             client.disconnect();
         }
     }
@@ -65,24 +67,57 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
             if (this.userSockets.get(userId)?.size === 0) {
                 this.userSockets.delete(userId);
             }
-            this.logger.log(`User ${userId} disconnected (socket: ${client.id})`);
         }
     }
 
-    /**
-     * Send notification to a specific user (all their tabs/devices)
-     */
+    // ─── Notification helpers ────────────────────────────────────────
     sendNotificationToUser(userId: string, payload: any) {
         this.server.to(`user:${userId}`).emit('notification', payload);
     }
 
-    /**
-     * Client can mark notifications as read (handled by REST API, but socket confirms it)
-     */
     @SubscribeMessage('mark_read')
     handleMarkRead(client: Socket, notificationId: string) {
-        // The actual DB update is done via REST API
-        // This just confirms back to client
         client.emit('mark_read_ack', { notificationId });
+    }
+
+    // ─── Chat ────────────────────────────────────────────────────────
+
+    /** Client joins a booking chat room */
+    @SubscribeMessage('join_booking')
+    handleJoinBooking(
+        @MessageBody() bookingId: string,
+        @ConnectedSocket() client: Socket,
+    ) {
+        client.join(`booking:${bookingId}`);
+        client.emit('joined_booking', { bookingId });
+        this.logger.log(`Socket ${client.id} joined booking:${bookingId}`);
+    }
+
+    /** Client sends a chat message */
+    @SubscribeMessage('send_message')
+    async handleSendMessage(
+        @MessageBody() payload: { bookingId: string; content: string },
+        @ConnectedSocket() client: Socket,
+    ) {
+        const userId = client.data?.userId;
+        if (!userId) return;
+
+        try {
+            const msg = await this.messagesService.createMessage(
+                payload.bookingId,
+                userId,
+                payload.content,
+            );
+
+            // Broadcast to everyone in the booking room
+            this.server.to(`booking:${payload.bookingId}`).emit('new_message', msg);
+        } catch (err) {
+            client.emit('message_error', { error: (err as Error).message });
+        }
+    }
+
+    /** Send a chat message to all clients in a booking room (used internally) */
+    broadcastToBooking(bookingId: string, event: string, payload: any) {
+        this.server.to(`booking:${bookingId}`).emit(event, payload);
     }
 }

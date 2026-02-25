@@ -7,6 +7,7 @@ import { NotificationsService } from './notifications.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsController } from './notifications.controller';
 import { Notification, NotificationSchema } from './schemas/notification.schema';
+import { MessagesModule } from '../messages/messages.module';
 
 @Module({
     imports: [
@@ -18,6 +19,7 @@ import { Notification, NotificationSchema } from './schemas/notification.schema'
             }),
             inject: [ConfigService],
         }),
+        MessagesModule,
     ],
     controllers: [NotificationsController],
     providers: [LineNotifyService, NotificationsService, NotificationsGateway],
