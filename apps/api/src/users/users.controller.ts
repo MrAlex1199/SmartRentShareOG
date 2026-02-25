@@ -1,14 +1,108 @@
-import { Controller, Get, UseGuards, Request } from '@nestjs/common';
+import {
+    Controller,
+    Get,
+    Post,
+    Patch,
+    UseGuards,
+    Request,
+    Body,
+    Param,
+    UseInterceptors,
+    UploadedFile,
+    BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
+import { UploadService } from '../upload/upload.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('users')
 export class UsersController {
-    constructor(private readonly usersService: UsersService) { }
+    constructor(
+        private readonly usersService: UsersService,
+        private readonly uploadService: UploadService,
+    ) { }
 
+    /** GET /users/me — โปรไฟล์ตัวเอง */
     @Get('me')
     @UseGuards(JwtAuthGuard)
     async getProfile(@Request() req: any) {
         return this.usersService.findById(req.user.userId);
+    }
+
+    /** GET /users/:id — โปรไฟล์สาธารณะ */
+    @Get(':id')
+    async getPublicProfile(@Param('id') id: string) {
+        const user = await this.usersService.findById(id);
+        if (!user) throw new BadRequestException('ไม่พบผู้ใช้');
+        // Return only safe public fields
+        return {
+            _id: user._id,
+            displayName: user.displayName,
+            pictureUrl: user.pictureUrl,
+            isVerified: user.isVerified,
+            averageRating: user.averageRating,
+            totalReviews: user.totalReviews,
+            role: user.role,
+            createdAt: (user as any).createdAt,
+        };
+    }
+
+    // ─── Verification ───────────────────────────────────────────────
+
+    /**
+     * POST /users/me/verification
+     * ผู้ใช้ส่งรูปบัตรประชาชน / บัตรนักศึกษา
+     * form-data: file (image), docType: "national_id" | "student_id"
+     */
+    @Post('me/verification')
+    @UseGuards(JwtAuthGuard)
+    @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+    async submitVerification(
+        @UploadedFile() file: Express.Multer.File,
+        @Body('docType') docType: 'national_id' | 'student_id',
+        @Request() req: any,
+    ) {
+        if (!file) throw new BadRequestException('กรุณาแนบรูปบัตร');
+        if (!['national_id', 'student_id'].includes(docType)) {
+            throw new BadRequestException('docType ต้องเป็น national_id หรือ student_id');
+        }
+
+        const uploaded = await this.uploadService.uploadFile(file, 'smartrentshare/verifications');
+        return this.usersService.submitVerification(
+            req.user.userId,
+            uploaded.secure_url,
+            uploaded.public_id,
+            docType,
+        );
+    }
+
+    // ─── Admin Endpoints ────────────────────────────────────────────
+
+    /** GET /users/admin/verifications — รายการ pending (admin only) */
+    @Get('admin/verifications')
+    @UseGuards(JwtAuthGuard)
+    async getPendingVerifications(@Request() req: any) {
+        return this.usersService.getPendingVerifications();
+    }
+
+    /** PATCH /users/:id/verify — Admin อนุมัติ/ปฏิเสธ */
+    @Patch(':id/verify')
+    @UseGuards(JwtAuthGuard)
+    async reviewVerification(
+        @Param('id') targetUserId: string,
+        @Body('action') action: 'approve' | 'reject',
+        @Body('rejectionReason') rejectionReason: string,
+        @Request() req: any,
+    ) {
+        if (!['approve', 'reject'].includes(action)) {
+            throw new BadRequestException('action ต้องเป็น approve หรือ reject');
+        }
+        return this.usersService.reviewVerification(
+            req.user.userId,
+            targetUserId,
+            action,
+            rejectionReason,
+        );
     }
 }

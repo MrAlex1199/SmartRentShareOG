@@ -48,6 +48,16 @@ function InfoRow({ label, value }: { label: React.ReactNode; value: React.ReactN
   );
 }
 
+/* ─── Dispute reasons ─── */
+const DISPUTE_REASONS = [
+  { value: 'item_damaged', label: '💥 สินค้าเสียหาย' },
+  { value: 'item_not_as_described', label: '📋 ไม่ตรงตามที่โฆษณา' },
+  { value: 'no_show', label: '🚷 ไม่มาตามนัด' },
+  { value: 'late_return', label: '⏰ คืนช้า' },
+  { value: 'payment_issue', label: '💳 ปัญหาการชำระเงิน' },
+  { value: 'other', label: '❓ อื่นๆ' },
+];
+
 /* ─── Main Page ─── */
 export default function BookingDetailPage() {
   const params = useParams();
@@ -75,6 +85,13 @@ export default function BookingDetailPage() {
   // Review
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
+
+  // Dispute / Report
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('item_damaged');
+  const [disputeDesc, setDisputeDesc] = useState('');
+  const [disputeLoading, setDisputeLoading] = useState(false);
+  const [disputeSuccess, setDisputeSuccess] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -597,6 +614,27 @@ export default function BookingDetailPage() {
             {[BookingStatus.PENDING, BookingStatus.CONFIRMED].includes(booking.status) && (
               <button onClick={handleCancel} disabled={actionLoading} className="px-5 py-2.5 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 disabled:opacity-50">ยกเลิกการจอง</button>
             )}
+            {/* Chat button — available for all active bookings */}
+            {['confirmed', 'paid', 'active', 'completed'].includes(booking.status) && (
+              <button
+                onClick={() => router.push(`/bookings/${bookingId}/chat`)}
+                className="px-5 py-2.5 bg-primary text-gray-900 rounded-lg font-semibold hover:bg-primary/90 flex items-center gap-2"
+              >
+                <span>💬</span> แชท
+              </button>
+            )}
+            {/* Report dispute — only for active rental */}
+            {booking.status === BookingStatus.ACTIVE && !disputeSuccess && (
+              <button
+                onClick={() => setShowDisputeModal(true)}
+                className="px-5 py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-semibold hover:bg-red-100 flex items-center gap-2"
+              >
+                <span>⚠️</span> รายงานปัญหา
+              </button>
+            )}
+            {disputeSuccess && (
+              <span className="px-4 py-2.5 bg-orange-50 text-orange-700 rounded-lg text-sm font-medium">✅ ส่งรายงานแล้ว</span>
+            )}
             <button onClick={() => router.push('/bookings')} className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200">กลับไปหน้าการจอง</button>
           </div>
         </div>
@@ -614,6 +652,66 @@ export default function BookingDetailPage() {
             <div className="flex gap-3">
               <button onClick={() => setShowRejectModal(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium">ยกเลิก</button>
               <button onClick={() => handleVerifyPayment('reject')} disabled={actionLoading} className="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-semibold disabled:opacity-50">ยืนยันปฏิเสธ</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Dispute Modal ── */}
+      {showDisputeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">⚠️ รายงานปัญหา</h3>
+              <button onClick={() => setShowDisputeModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            </div>
+            <p className="text-sm text-gray-500">ทีมงานจะตรวจสอบและติดต่อกลับภายใน 24 ชั่วโมง</p>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">ประเภทปัญหา</label>
+              <div className="space-y-1.5">
+                {DISPUTE_REASONS.map(r => (
+                  <label key={r.value} className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer border transition-colors ${disputeReason === r.value ? 'border-primary bg-primary/10' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input type="radio" name="disputeReason" value={r.value} checked={disputeReason === r.value} onChange={e => setDisputeReason(e.target.value)} className="sr-only" />
+                    <span className="text-sm">{r.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">รายละเอียด</label>
+              <textarea
+                value={disputeDesc}
+                onChange={e => setDisputeDesc(e.target.value)}
+                rows={3}
+                placeholder="อธิบายปัญหาที่พบ..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowDisputeModal(false)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50">ยกเลิก</button>
+              <button
+                disabled={!disputeDesc.trim() || disputeLoading}
+                onClick={async () => {
+                  setDisputeLoading(true);
+                  try {
+                    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/disputes`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ bookingId, reason: disputeReason, description: disputeDesc }),
+                    });
+                    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || 'Error'); }
+                    setDisputeSuccess(true);
+                    setShowDisputeModal(false);
+                  } catch (e: any) { alert(e.message); }
+                  finally { setDisputeLoading(false); }
+                }}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-semibold disabled:opacity-50 hover:bg-red-700"
+              >
+                {disputeLoading ? 'กำลังส่ง...' : 'ส่งรายงาน'}
+              </button>
             </div>
           </div>
         </div>
