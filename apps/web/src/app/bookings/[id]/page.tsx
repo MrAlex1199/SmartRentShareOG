@@ -202,6 +202,17 @@ export default function BookingDetailPage() {
   };
 
   const handleConfirmHandover = async () => {
+    // Feature 3: Warn if no before-photos uploaded
+    const hasPhotos = bk?.itemConditionBefore?.images?.length > 0;
+    if (!hasPhotos) {
+      const proceed = confirm(
+        '⚠️ ยังไม่ได้ถ่ายรูปสภาพสินค้าก่อนส่งมอบ\n\n'
+        + 'การถ่ายรูปสภาพสินค้าก่อนส่งมอบช่วยป้องกันข้อพิพาทในภายหลัง\n'
+        + '• ไปอัปโหลดรูปก่อน: กด “ยกเลิก”\n'
+        + '• ยืนยันโดยไม่มีรูป: กด “ตกลง”'
+      );
+      if (!proceed) return;
+    }
     setActionLoading(true);
     try { await callApi(`/bookings/${bookingId}/confirm-handover`); await fetchAll(); }
     catch (e: any) { alert(e.message); }

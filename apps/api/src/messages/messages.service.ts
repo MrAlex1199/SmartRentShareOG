@@ -11,7 +11,7 @@ export class MessagesService {
     ) { }
 
     /** ตรวจสอบว่า userId เป็น renter หรือ owner ของ booking นี้ */
-    private async assertAccess(bookingId: string, userId: string): Promise<any> {
+    async assertAccess(bookingId: string, userId: string): Promise<any> {
         const booking = await this.bookingModel.findById(bookingId)
             .populate('renter', 'displayName pictureUrl')
             .populate('owner', 'displayName pictureUrl')
@@ -26,7 +26,7 @@ export class MessagesService {
         return booking;
     }
 
-    /** โหลดประวัติข้อความสำหรับ booking (100 ข้อความล่าสุด) */
+    /** โหลดประวัติข้อความสำหรับ booking */
     async getMessages(bookingId: string, userId: string): Promise<MessageDocument[]> {
         await this.assertAccess(bookingId, userId);
         return this.messageModel
@@ -44,7 +44,7 @@ export class MessagesService {
         content: string,
         messageType: 'text' | 'image' | 'system' = 'text',
     ): Promise<MessageDocument> {
-        await this.assertAccess(bookingId, senderId);
+        const booking = await this.assertAccess(bookingId, senderId);
 
         const msg = new this.messageModel({
             booking: new Types.ObjectId(bookingId),
@@ -54,6 +54,31 @@ export class MessagesService {
             isRead: false,
         });
         const saved = await msg.save();
-        return this.messageModel.findById(saved._id).populate('sender', 'displayName pictureUrl') as any;
+        return this.messageModel
+            .findById(saved._id)
+            .populate('sender', 'displayName pictureUrl') as any;
+    }
+
+    /** มาร์คข้อความทั้งหมดในห้องนี้ที่ไม่ใช่ตัวเองว่าอ่านแล้ว */
+    async markAsRead(bookingId: string, readerId: string): Promise<number> {
+        await this.assertAccess(bookingId, readerId);
+        const result = await this.messageModel.updateMany(
+            {
+                booking: new Types.ObjectId(bookingId),
+                sender: { $ne: new Types.ObjectId(readerId) },
+                isRead: false,
+            },
+            { $set: { isRead: true } },
+        );
+        return result.modifiedCount;
+    }
+
+    /** นับข้อความที่ยังไม่อ่านสำหรับ userId ใน booking นี้ */
+    async getUnreadCount(bookingId: string, userId: string): Promise<number> {
+        return this.messageModel.countDocuments({
+            booking: new Types.ObjectId(bookingId),
+            sender: { $ne: new Types.ObjectId(userId) },
+            isRead: false,
+        });
     }
 }

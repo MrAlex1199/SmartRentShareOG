@@ -28,13 +28,15 @@ export function useSocket(): UseSocketReturn {
         const token = Cookies.get('token');
         if (!token) return;
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'https://localhost:3001';
+        // Force http:// — wss:// fails on localhost without SSL cert
+        const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+        const apiUrl = rawUrl.replace('/api', '').replace('https://', 'http://');
 
         const socket = io(apiUrl, {
             auth: { token },
-            transports: ['websocket'],
+            transports: ['polling', 'websocket'], // polling first avoids SSL issue
             reconnection: true,
-            reconnectionAttempts: 5,
+            reconnectionAttempts: 10,
             reconnectionDelay: 2000,
         });
 

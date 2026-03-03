@@ -57,4 +57,10 @@ export class PaymentsController {
             body.reason,
         );
     }
+
+    /** GET /payments/my-payouts — รายการโอนเงินของเจ้าของ */
+    @Get('my-payouts')
+    async getMyPayouts(@Request() req: any) {
+        return this.paymentsService.getOwnerPayouts(req.user.userId);
+    }
 }

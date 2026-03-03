@@ -103,7 +103,10 @@ export function NotificationBell() {
         // Navigate to booking if available
         if (notification.bookingId) {
             setIsOpen(false);
-            router.push(`/bookings/${notification.bookingId}`);
+            const path = notification.type === 'chat_message'
+                ? `/bookings/${notification.bookingId}/chat`
+                : `/bookings/${notification.bookingId}`;
+            router.push(path);
         }
     };
 
@@ -117,6 +120,7 @@ export function NotificationBell() {
             payment_submitted: '💳',
             payment_verified: '✅',
             review_received: '⭐',
+            chat_message: '💬',
         };
         return icons[type] || '🔔';
     };

@@ -391,4 +391,28 @@ export class PaymentsService {
 
         return updated;
     }
+
+    // ─────────────────────────────────── Owner Payouts ───────────────────────────────────
+    async getOwnerPayouts(userId: string): Promise<any[]> {
+        // Find all bookings owned by the user that have payments
+        const bookings = await this.bookingModel
+            .find({ owner: new Types.ObjectId(userId) })
+            .select('_id')
+            .lean();
+
+        const bookingIds = bookings.map((b: any) => b._id);
+        if (!bookingIds.length) return [];
+
+        return this.paymentModel
+            .find({ booking: { $in: bookingIds } })
+            .populate({
+                path: 'booking',
+                populate: [
+                    { path: 'item', select: 'title images' },
+                    { path: 'renter', select: 'displayName pictureUrl' },
+                ],
+            })
+            .sort({ createdAt: -1 })
+            .lean();
+    }
 }

@@ -136,4 +136,20 @@ export class LineNotifyService {
 
         return this.sendMessage(ownerLineId, message);
     }
+
+    /** แจ้งเจ้าของเมื่อมีข้อความใหม่ใน Chat */
+    async notifyOwnerNewChatMessage(ownerLineId: string, data: {
+        senderName: string;
+        itemTitle: string;
+        messagePreview: string;
+        bookingId: string;
+    }): Promise<boolean> {
+        const message =
+            `💬 มีข้อความใหม่จาก ${data.senderName}!\n\n` +
+            `สินค้า: ${data.itemTitle}\n` +
+            `"${data.messagePreview}"\n\n` +
+            `เปิดแอปเพื่อตอบกลับ`;
+
+        return this.sendMessage(ownerLineId, message);
+    }
 }

@@ -5,10 +5,10 @@
 PASS src/app.controller.spec.ts
   AppController
     root
-      √ should return "Hello World!" (10 ms)
+      √ should return "Hello World!" (7 ms)
 
 Test Suites: 1 passed, 1 total
 Tests:       1 passed, 1 total
 Snapshots:   0 total
-Time:        3.804 s
+Time:        3.415 s
 Ran all test suites.

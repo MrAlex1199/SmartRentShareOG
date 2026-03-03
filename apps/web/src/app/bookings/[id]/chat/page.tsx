@@ -40,6 +40,15 @@ function Avatar({ user, size = 8 }: { user: { displayName: string; pictureUrl?: 
   );
 }
 
+function ReadTick({ isRead, isMe }: { isRead: boolean; isMe: boolean }) {
+  if (!isMe) return null;
+  return (
+    <span className={`text-xs ml-1 ${isRead ? 'text-blue-500' : 'text-gray-400'}`}>
+      {isRead ? '✓✓' : '✓'}
+    </span>
+  );
+}
+
 function isSameDay(a: string, b: string) {
   return new Date(a).toDateString() === new Date(b).toDateString();
 }
@@ -56,6 +65,7 @@ export default function ChatPage() {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [otherOnline, setOtherOnline] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -83,6 +93,11 @@ export default function ChatPage() {
       }
       if (bookingRes.ok) setBooking(await bookingRes.json());
       if (msgRes.ok) setMessages(await msgRes.json());
+
+      // Mark messages as read via REST
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/${bookingId}/read`, {
+        method: 'PATCH', headers,
+      }).catch(() => { });
     } finally {
       setLoading(false);
     }
@@ -92,24 +107,49 @@ export default function ChatPage() {
   useEffect(() => {
     if (!token) return;
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? 'http://localhost:3001';
+    const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const apiBase = rawUrl.replace('/api', '').replace('https://', 'http://');
     const socket: Socket = io(apiBase, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000,
     });
 
     socket.on('connect', () => {
       setConnected(true);
       socket.emit('join_booking', bookingId);
+      // Emit read event when entering chat
+      socket.emit('messages_read', bookingId);
     });
 
     socket.on('disconnect', () => setConnected(false));
 
     socket.on('new_message', (msg: MessageDoc) => {
       setMessages(prev => {
-        // Avoid duplicates
         if (prev.some(m => m._id === msg._id)) return prev;
         return [...prev, msg];
+      });
+      // Mark as read immediately when new message arrives (we're in the chat)
+      socket.emit('messages_read', bookingId);
+    });
+
+    // Read receipt: when other user reads the messages
+    socket.on('messages_read_ack', ({ readBy }: { bookingId: string; readBy: string }) => {
+      setMessages(prev => prev.map(m =>
+        m.sender._id !== readBy ? { ...m, isRead: true } : m
+      ));
+    });
+
+    // Online/offline status of the other user
+    socket.on('user_status', ({ userId, online }: { userId: string; online: boolean }) => {
+      // We'll compare against otherUser once booking is loaded
+      setBooking(b => {
+        if (!b) return b;
+        const otherId = b.renter._id === myId ? b.owner._id : b.renter._id;
+        if (userId === otherId) setOtherOnline(online);
+        return b;
       });
     });
 
@@ -125,6 +165,11 @@ export default function ChatPage() {
     };
   }, [bookingId, token, loadData]);
 
+  // Update otherOnline when booking loads
+  useEffect(() => {
+    // nothing — handled via socket events
+  }, [booking, myId]);
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text || sending) return;
@@ -132,18 +177,20 @@ export default function ChatPage() {
     setSending(true);
     setInput('');
 
-    // Emit via socket first (fast path)
     if (socketRef.current?.connected) {
       socketRef.current.emit('send_message', { bookingId, content: text });
     } else {
       // Fallback: REST API
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/${bookingId}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/messages/${bookingId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ content: text }),
         });
-        await loadData();
+        if (res.ok) {
+          const newMsg = await res.json();
+          setMessages(prev => [...prev, newMsg]);
+        }
       } catch { /* ignore */ }
     }
 
@@ -181,11 +228,17 @@ export default function ChatPage() {
 
         {otherUser && (
           <>
-            <Avatar user={otherUser} size={10} />
+            <div className="relative">
+              <Avatar user={otherUser} size={10} />
+              {/* Online indicator */}
+              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${otherOnline ? 'bg-green-500' : 'bg-gray-300'}`} />
+            </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-gray-900 truncate">{otherUser.displayName}</p>
               {booking && (
-                <p className="text-xs text-gray-500 truncate">{booking.item.title}</p>
+                <p className="text-xs text-gray-500 truncate">
+                  {otherOnline ? '🟢 ออนไลน์อยู่' : booking.item.title}
+                </p>
               )}
             </div>
           </>
@@ -211,6 +264,8 @@ export default function ChatPage() {
           const showDateDivider = !prevMsg || !isSameDay(prevMsg.createdAt, msg.createdAt);
           const showAvatar = !isMe && (!messages[idx + 1] || messages[idx + 1].sender._id !== msg.sender._id);
           const sameSenderAsPrev = prevMsg && prevMsg.sender._id === msg.sender._id;
+          // Show read tick only on last message from me
+          const isLastMyMsg = isMe && !messages.slice(idx + 1).some(m => m.sender._id === myId);
 
           return (
             <div key={msg._id}>
@@ -249,9 +304,12 @@ export default function ChatPage() {
                       {msg.content}
                     </div>
                   )}
-                  <span className="text-xs text-gray-400 mt-1 px-1">
-                    {formatDistanceToNow(new Date(msg.createdAt), { locale: th, addSuffix: true })}
-                  </span>
+                  <div className="flex items-center gap-1 px-1 mt-0.5">
+                    <span className="text-xs text-gray-400">
+                      {formatDistanceToNow(new Date(msg.createdAt), { locale: th, addSuffix: true })}
+                    </span>
+                    {isLastMyMsg && <ReadTick isRead={msg.isRead} isMe={isMe} />}
+                  </div>
                 </div>
               </div>
             </div>

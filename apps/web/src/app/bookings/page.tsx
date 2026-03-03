@@ -89,7 +89,7 @@ export default function MyBookingsPage() {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 lg:pb-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">การจองของฉัน</h1>
@@ -97,18 +97,18 @@ export default function MyBookingsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600 mb-1">การจองทั้งหมด</div>
-            <div className="text-2xl font-bold text-gray-900">{bookings.length}</div>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
+            <div className="text-xs text-gray-500 mb-1">การจองทั้งหมด</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{bookings.length}</div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600 mb-1">กำลังเช่า</div>
-            <div className="text-2xl font-bold text-purple-600">{activeCount}</div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
+            <div className="text-xs text-gray-500 mb-1">กำลังเช่า</div>
+            <div className="text-xl sm:text-2xl font-bold text-purple-600">{activeCount}</div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600 mb-1">จองล่วงหน้า</div>
-            <div className="text-2xl font-bold text-blue-600">{upcomingCount}</div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
+            <div className="text-xs text-gray-500 mb-1">จองล่วงหน้า</div>
+            <div className="text-xl sm:text-2xl font-bold text-blue-600">{upcomingCount}</div>
           </div>
         </div>
 

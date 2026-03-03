@@ -84,34 +84,34 @@ export default function BookingRequestsPage() {
     <div className="min-h-screen bg-gray-50">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 lg:pb-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">คำขอจอง</h1>
-          <p className="text-gray-600">จัดการคำขอจองสำหรับสินค้าของคุณ</p>
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">คำขอจอง</h1>
+          <p className="text-sm text-gray-500">จัดการคำขอจองสำหรับสินค้าของคุณ</p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600 mb-1">คำขอทั้งหมด</div>
-            <div className="text-2xl font-bold text-gray-900">{bookings.length}</div>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
+            <div className="text-xs text-gray-500 mb-1">คำขอทั้งหมด</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{bookings.length}</div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600 mb-1">รอยืนยัน</div>
-            <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
+            <div className="text-xs text-gray-500 mb-1">รอยืนยัน</div>
+            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{pendingCount}</div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="text-sm text-gray-600 mb-1">กำลังดำเนินการ</div>
-            <div className="text-2xl font-bold text-green-600">{activeCount}</div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
+            <div className="text-xs text-gray-500 mb-1">ดำเนินการ</div>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">{activeCount}</div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-1.5 mb-4">
           <button
             onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filter === 'all'
                 ? 'bg-primary text-gray-900'
                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
@@ -121,7 +121,7 @@ export default function BookingRequestsPage() {
           </button>
           <button
             onClick={() => setFilter('pending')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filter === 'pending'
                 ? 'bg-primary text-gray-900'
                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
@@ -129,20 +129,20 @@ export default function BookingRequestsPage() {
           >
             รอยืนยัน
             {pendingCount > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+              <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
                 {pendingCount}
               </span>
             )}
           </button>
           <button
             onClick={() => setFilter('active')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               filter === 'active'
                 ? 'bg-primary text-gray-900'
                 : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
             }`}
           >
-            กำลังดำเนินการ
+            ดำเนินการ
           </button>
         </div>
 
@@ -163,7 +163,7 @@ export default function BookingRequestsPage() {
             <p className="text-sm text-gray-400">เมื่อมีคนจองสินค้าของคุณ จะแสดงที่นี่</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {filteredBookings.map((booking) => (
               <BookingCard
                 key={booking._id}

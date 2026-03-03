@@ -12,6 +12,7 @@ export enum NotificationType {
     PAYMENT_SUBMITTED = 'payment_submitted',
     PAYMENT_VERIFIED = 'payment_verified',
     REVIEW_RECEIVED = 'review_received',
+    CHAT_MESSAGE = 'chat_message',
 }
 
 @Schema({ timestamps: true })
@@ -39,3 +40,7 @@ export class Notification {
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
+
+// Performance indexes
+NotificationSchema.index({ user: 1, isRead: 1 });        // fast unread count
+NotificationSchema.index({ user: 1, createdAt: -1 });    // sorted notification list

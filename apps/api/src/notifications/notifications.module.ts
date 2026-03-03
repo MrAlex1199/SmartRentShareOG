@@ -8,10 +8,14 @@ import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsController } from './notifications.controller';
 import { Notification, NotificationSchema } from './schemas/notification.schema';
 import { MessagesModule } from '../messages/messages.module';
+import { User, UserSchema } from '../users/schemas/user.schema';
 
 @Module({
     imports: [
-        MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }]),
+        MongooseModule.forFeature([
+            { name: Notification.name, schema: NotificationSchema },
+            { name: User.name, schema: UserSchema },
+        ]),
         JwtModule.registerAsync({
             imports: [ConfigModule],
             useFactory: (configService: ConfigService) => ({
