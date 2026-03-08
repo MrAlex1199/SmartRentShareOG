@@ -1,0 +1,36 @@
+# Render Blueprint — SmartRent&Share
+# https://render.com/docs/blueprint-spec
+# ──────────────────────────────────────────────────────────────
+# วิธีใช้: เชื่อม repo กับ Render → มันจะอ่านไฟล์นี้อัตโนมัติ
+# หรือจะ deploy manual ก็ได้ตาม README
+
+services:
+  # ── NestJS API ──────────────────────────────────────────────
+  - type: web
+    name: smartrent-api
+    runtime: node
+    region: singapore
+    plan: free                          # เปลี่ยนเป็น starter ($7/mo) เมื่อพร้อม
+    rootDir: ./                         # root ของ monorepo (ต้อง install ทุก workspace)
+    buildCommand: npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/api
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: MONGO_URI
+        sync: false                     # ใส่เองใน Render Dashboard
+      - key: JWT_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: FRONTEND_URL
+        sync: false                     # URL ของ Vercel web เช่น https://smartrent.vercel.app
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

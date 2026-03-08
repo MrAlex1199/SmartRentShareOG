@@ -2,13 +2,18 @@
 > api@0.0.1 test
 > jest
 
-PASS src/app.controller.spec.ts
+PASS src/app.controller.spec.ts (8.507 s)
   AppController
     root
-      √ should return "Hello World!" (6 ms)
+      √ should return "Hello World!" (9 ms)
 
 Test Suites: 1 passed, 1 total
 Tests:       1 passed, 1 total
 Snapshots:   0 total
-Time:        3.898 s
+Time:        10.157 s
 Ran all test suites.
+npm notice
+npm notice New major version of npm available! 10.9.4 -> 11.11.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.11.0
+npm notice To update run: npm install -g npm@11.11.0
+npm notice
