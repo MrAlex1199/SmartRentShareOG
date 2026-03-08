@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
@@ -25,6 +27,24 @@ import { AdminModule } from './admin/admin.module';
       }),
       inject: [ConfigService],
     }),
+    // ── Rate Limiting ────────────────────────────────────────────
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000,          // 1 second window
+        limit: 20,          // max 20 requests/sec per IP
+      },
+      {
+        name: 'medium',
+        ttl: 60_000,        // 1 minute window
+        limit: 200,         // max 200 requests/min per IP
+      },
+      {
+        name: 'long',
+        ttl: 15 * 60_000,   // 15 minutes window
+        limit: 1000,        // max 1000 requests/15min per IP
+      },
+    ]),
     UsersModule,
     AuthModule,
     ItemsModule,
@@ -38,6 +58,13 @@ import { AdminModule } from './admin/admin.module';
     AdminModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Apply ThrottlerGuard globally to all routes
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule { }

@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ItemsService } from '../items/items.service';
 import { AvailabilityService } from './services/availability.service';
 import { PaymentsService } from '../payments/payments.service';
+import { Throttle } from '@nestjs/throttler';
 import { parseISO } from 'date-fns';
 
 @Controller('bookings')
@@ -16,6 +17,8 @@ export class BookingsController {
         private readonly paymentsService: PaymentsService,
     ) { }
 
+    // Strict: max 10 new bookings per minute per IP
+    @Throttle({ short: { ttl: 60_000, limit: 10 } })
     @Post()
     @UseGuards(JwtAuthGuard)
     async create(@Body() createBookingDto: CreateBookingDto, @Request() req: any) {

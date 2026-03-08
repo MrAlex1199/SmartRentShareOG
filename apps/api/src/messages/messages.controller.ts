@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { MessagesService } from './messages.service';
@@ -30,7 +31,8 @@ export class MessagesController {
         return { markedRead: count };
     }
 
-    /** POST /messages/:bookingId — ส่งข้อความ (REST fallback เมื่อ socket ไม่ได้เชื่อมต่อ) */
+    /** POST /messages/:bookingId — ส่งข้อความ (REST fallback, max 30/min) */
+    @Throttle({ short: { ttl: 60_000, limit: 30 } })
     @Post(':bookingId')
     async sendMessage(
         @Param('bookingId') bookingId: string,

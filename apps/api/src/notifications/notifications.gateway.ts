@@ -16,7 +16,9 @@ import { MessagesService } from '../messages/messages.service';
 import { Notification, NotificationDocument } from './schemas/notification.schema';
 import { NotificationType } from './schemas/notification.schema';
 import { LineNotifyService } from './line-notify.service';
+import { SkipThrottle } from '@nestjs/throttler';
 
+@SkipThrottle() // WebSocket connections bypass HTTP rate limiting
 @WebSocketGateway({
     cors: {
         origin: ['https://localhost:3005', 'http://localhost:3005', process.env.FRONTEND_URL || '*'],
