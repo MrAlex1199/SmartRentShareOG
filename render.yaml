@@ -12,7 +12,7 @@ services:
     region: singapore
     plan: free                          # เปลี่ยนเป็น starter ($7/mo) เมื่อพร้อม
     rootDir: ./                         # root ของ monorepo (ต้อง install ทุก workspace)
-    buildCommand: npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/api
+    buildCommand: NODE_ENV=development npm install && npm run build --workspace=packages/shared && npm run build --workspace=apps/api
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /
     envVars:
