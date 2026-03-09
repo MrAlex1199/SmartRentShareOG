@@ -18,8 +18,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3001
       - key: MONGO_URI
         sync: false                     # ใส่เองใน Render Dashboard
       - key: JWT_SECRET
