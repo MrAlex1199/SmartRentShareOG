@@ -24,8 +24,15 @@ export class ItemsService {
         sort?: string;
         limit?: number;
         skip?: number;
+        owner?: string;
     }): Promise<Item[]> {
-        const filter: any = { isAvailable: true };
+        const filter: any = {};
+        // When filtering by owner (profile page), show all. Otherwise only available
+        if (!query.owner) filter.isAvailable = true;
+
+        if (query.owner) {
+            filter.owner = query.owner;
+        }
 
         if (query.category) {
             filter.category = query.category;
@@ -41,7 +48,7 @@ export class ItemsService {
             if (query.maxPrice !== undefined) filter.dailyPrice.$lte = query.maxPrice;
         }
 
-        let sortOption: any = { createdAt: -1 }; // Default: newest first
+        let sortOption: any = { createdAt: -1 };
         if (query.sort === 'price-asc') sortOption = { dailyPrice: 1 };
         if (query.sort === 'price-desc') sortOption = { dailyPrice: -1 };
         if (query.sort === 'popular') sortOption = { views: -1 };

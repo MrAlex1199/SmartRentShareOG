@@ -18,6 +18,7 @@ export default function ItemDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
   
   // Booking confirmation modal
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -33,11 +34,14 @@ export default function ItemDetailPage() {
   const fetchItem = async () => {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items/${itemId}`);
-      if (!response.ok) {
-        throw new Error('ไม่พบสินค้า');
-      }
+      if (!response.ok) throw new Error('ไม่พบสินค้า');
       const data = await response.json();
       setItem(data);
+      // Fetch reviews in parallel
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/reviews/item/${itemId}`)
+        .then(r => r.ok ? r.json() : [])
+        .then(setReviews)
+        .catch(() => {});
     } catch (err: any) {
       setError(err.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูล');
     } finally {
@@ -150,6 +154,10 @@ export default function ItemDetailPage() {
   const bookingData = calculateBookingData();
   const ownerName = typeof item.owner === 'object' ? item.owner.displayName : 'Unknown';
   const ownerPicture = typeof item.owner === 'object' ? item.owner.pictureUrl : undefined;
+  const ownerId = typeof item.owner === 'object' ? (item.owner as any)._id : item.owner;
+  const avgRating = reviews.length
+    ? (reviews.reduce((s, r) => s + r.overallRating, 0) / reviews.length).toFixed(1)
+    : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -291,7 +299,12 @@ export default function ItemDetailPage() {
                     </div>
                   )}
                   <div>
-                    <p className="font-medium text-gray-900">{ownerName}</p>
+                    <button
+                      onClick={() => router.push(`/users/${ownerId}`)}
+                      className="font-medium text-primary hover:underline text-left"
+                    >
+                      {ownerName}
+                    </button>
                     <p className="text-sm text-gray-500">เจ้าของสินค้า</p>
                   </div>
                 </div>
@@ -299,7 +312,45 @@ export default function ItemDetailPage() {
             </div>
           </div>
 
-          {/* Right Column - Booking Form */}
+          {/* ── Reviews Section ─────────────────────────── */}
+          {reviews.length > 0 && (
+            <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <h2 className="text-lg font-bold text-gray-900">รีวิวจากผู้เช่า</h2>
+                <span className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 px-2.5 py-0.5 rounded-full text-sm font-semibold text-yellow-700">
+                  ⭐ {avgRating} <span className="font-normal text-yellow-600">({reviews.length} รีวิว)</span>
+                </span>
+              </div>
+              <div className="space-y-4">
+                {reviews.map((review: any) => (
+                  <div key={review._id} className="border-b border-gray-100 last:border-0 pb-4 last:pb-0">
+                    <div className="flex items-start gap-3">
+                      {/* Avatar */}
+                      <div className="w-9 h-9 flex-shrink-0 rounded-full overflow-hidden bg-gray-200">
+                        {review.reviewer?.pictureUrl
+                          ? <img src={review.reviewer.pictureUrl} alt="" className="w-full h-full object-cover" />
+                          : <div className="w-full h-full flex items-center justify-center text-sm">👤</div>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <p className="text-sm font-semibold text-gray-900">{review.reviewer?.displayName || 'ผู้เช่า'}</p>
+                          <span className="text-xs text-yellow-500 flex-shrink-0">
+                            {'★'.repeat(review.overallRating)}{'☆'.repeat(5 - review.overallRating)}
+                          </span>
+                        </div>
+                        {review.comment && (
+                          <p className="text-sm text-gray-600 leading-relaxed">{review.comment}</p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(review.createdAt).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
               <BookingForm

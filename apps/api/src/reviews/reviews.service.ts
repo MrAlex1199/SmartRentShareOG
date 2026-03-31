@@ -75,6 +75,29 @@ export class ReviewsService {
     }
 
     /**
+     * Get reviews for a specific item (public)
+     */
+    async findByItem(itemId: string) {
+        // Find bookings for this item first, then get reviews
+        const bookings = await this.bookingModel
+            .find({ item: new Types.ObjectId(itemId), status: 'completed' })
+            .select('_id')
+            .lean();
+        const bookingIds = bookings.map((b: any) => b._id);
+        if (!bookingIds.length) return [];
+
+        return this.reviewModel
+            .find({
+                booking: { $in: bookingIds },
+                revieweeType: 'owner',   // reviews left by renters about the item/owner
+            })
+            .populate('reviewer', 'displayName pictureUrl')
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .exec();
+    }
+
+    /**
      * Get all reviews for a user (as reviewee)
      */
     async findByUser(userId: string) {

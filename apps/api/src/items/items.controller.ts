@@ -39,6 +39,7 @@ export class ItemsController {
         @Query('sort') sort?: string,
         @Query('limit') limit?: string,
         @Query('skip') skip?: string,
+        @Query('owner') owner?: string,
     ) {
         return this.itemsService.findAll({
             category,
@@ -48,6 +49,7 @@ export class ItemsController {
             sort,
             limit: limit ? Number(limit) : undefined,
             skip: skip ? Number(skip) : undefined,
+            owner,
         });
     }
 
