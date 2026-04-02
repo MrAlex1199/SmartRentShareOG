@@ -86,14 +86,18 @@ export default function PayoutsPage() {
         </div>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-            <p className="text-xs text-gray-500 mb-1">รับแล้วทั้งหมด</p>
-            <p className="text-xl font-bold text-green-600">฿{totalReleased.toLocaleString()}</p>
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center flex flex-col justify-center">
+            <p className="text-xs text-gray-500 mb-1">สำเร็จแล้ว</p>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">{payouts.filter(p => p.status === 'released').length} <span className="text-sm font-normal text-gray-500">รายการ</span></p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
-            <p className="text-xs text-gray-500 mb-1">รอรับอยู่</p>
-            <p className="text-xl font-bold text-blue-600">฿{totalPending.toLocaleString()}</p>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center flex flex-col justify-center">
+            <p className="text-xs text-gray-500 mb-1">รับสุทธิ (รวม)</p>
+            <p className="text-xl sm:text-2xl font-bold text-green-600">฿{totalReleased.toLocaleString()}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 text-center flex flex-col justify-center">
+            <p className="text-xs text-gray-500 mb-1">ยอดรอรับ</p>
+            <p className="text-xl sm:text-2xl font-bold text-blue-600">฿{totalPending.toLocaleString()}</p>
           </div>
         </div>
 

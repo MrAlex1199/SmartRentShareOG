@@ -97,18 +97,26 @@ export default function MyBookingsPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center">
             <div className="text-xs text-gray-500 mb-1">การจองทั้งหมด</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{bookings.length}</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{bookings.length} <span className="text-sm font-normal text-gray-500">ครั้ง</span></div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center">
+            <div className="text-xs text-gray-500 mb-1">สำเร็จแล้ว</div>
+            <div className="text-xl sm:text-2xl font-bold text-green-600">
+              {bookings.filter(b => b.status === BookingStatus.COMPLETED).length} <span className="text-sm font-normal text-gray-500">ครั้ง</span>
+            </div>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center">
+            <div className="text-xs text-gray-500 mb-1">มูลค่ารวมที่เช่าสำเร็จ</div>
+            <div className="text-xl sm:text-2xl font-bold text-primary">
+              ฿{bookings.filter(b => b.status === BookingStatus.COMPLETED).reduce((sum, b) => sum + b.totalPrice + (b.deliveryFee || 0), 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center">
             <div className="text-xs text-gray-500 mb-1">กำลังเช่า</div>
-            <div className="text-xl sm:text-2xl font-bold text-purple-600">{activeCount}</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
-            <div className="text-xs text-gray-500 mb-1">จองล่วงหน้า</div>
-            <div className="text-xl sm:text-2xl font-bold text-blue-600">{upcomingCount}</div>
+            <div className="text-xl sm:text-2xl font-bold text-purple-600">{activeCount} <span className="text-sm font-normal text-gray-500">รายการ</span></div>
           </div>
         </div>
 
