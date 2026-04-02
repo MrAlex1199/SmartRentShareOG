@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Item, ItemDocument } from './schemas/item.schema';
@@ -6,7 +6,10 @@ import { CreateItemDto, UpdateItemDto, ItemCategory } from '@repo/shared';
 
 @Injectable()
 export class ItemsService {
-    constructor(@InjectModel(Item.name) private itemModel: Model<ItemDocument>) { }
+    constructor(
+        @InjectModel(Item.name) private itemModel: Model<ItemDocument>,
+        @InjectModel('Booking') private bookingModel: Model<any>,
+    ) { }
 
     async create(createItemDto: CreateItemDto, ownerId: string): Promise<Item> {
         const newItem = new this.itemModel({
@@ -122,5 +125,57 @@ export class ItemsService {
         }
 
         await this.itemModel.findByIdAndDelete(id).exec();
+    }
+
+    /**
+     * Toggle item availability (owner can hide/show listing)
+     * ─ Blocks if PAID/ACTIVE bookings exist (must complete first)
+     * ─ Auto-cancels PENDING/CONFIRMED bookings when hiding
+     */
+    async setAvailability(itemId: string, userId: string, isAvailable: boolean): Promise<any> {
+        const item = await this.itemModel.findById(itemId);
+        if (!item) throw new NotFoundException('ไม่พบสินค้า');
+        if (item.owner.toString() !== userId) throw new ForbiddenException('คุณไม่ใช่เจ้าของสินค้านี้');
+
+        if (!isAvailable) {
+            // Check for blocking bookings (PAID or ACTIVE)
+            const blockingBookings = await this.bookingModel.find({
+                item: itemId,
+                status: { $in: ['paid', 'active'] },
+            });
+            if (blockingBookings.length > 0) {
+                throw new BadRequestException(
+                    `ไม่สามารถซ่อนสินค้าได้ มีการจองที่กำลังดำเนินอยู่ ${blockingBookings.length} รายการ (PAID/ACTIVE) รอให้ผู้เช่าคืนของก่อน`
+                );
+            }
+
+            // Auto-cancel PENDING and CONFIRMED bookings
+            const cancelable = await this.bookingModel.find({
+                item: itemId,
+                status: { $in: ['pending', 'confirmed'] },
+            });
+            if (cancelable.length > 0) {
+                await this.bookingModel.updateMany(
+                    { item: itemId, status: { $in: ['pending', 'confirmed'] } },
+                    {
+                        status: 'cancelled',
+                        $push: {
+                            statusHistory: {
+                                status: 'cancelled',
+                                timestamp: new Date(),
+                                note: 'เจ้าของซ่อนสินค้า — ยกเลิกการจองอัตโนมัติ',
+                            },
+                        },
+                    },
+                );
+            }
+        }
+
+        const updated = await this.itemModel.findByIdAndUpdate(
+            itemId,
+            { isAvailable },
+            { new: true },
+        );
+        return { item: updated, message: isAvailable ? 'เปิดรับจองแล้ว' : 'ซ่อนสินค้าแล้ว' };
     }
 }

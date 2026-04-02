@@ -57,6 +57,34 @@ export default function DashboardPage() {
         }
     };
 
+    const handleToggleAvailability = async (id: string, currentStatus: boolean) => {
+        const action = currentStatus ? 'ซ่อน' : 'เปิดให้เช่า';
+        if (!confirm(`ต้องการ${action}สินค้านี้หรือไม่?${currentStatus ? '\n\n*หากมีการจองค้างอยู่ ระบบจะยกเลิกการจองเหล่านั้นอัตโนมัติ (ยกเว้นการจองที่เริ่มเช่าแล้วจะซ่อนไม่ได้)' : ''}`)) return;
+
+        try {
+            const token = Cookies.get('token');
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items/${id}/availability`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ isAvailable: !currentStatus })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert(data.message || `${action}สำเร็จ`);
+                fetchMyListings();
+            } else {
+                alert(data.message || `เกิดข้อผิดพลาดในการ${action}`);
+            }
+        } catch (error) {
+            console.error('Error toggling availability:', error);
+            alert('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+        }
+    };
+
     const handleDelete = async (id: string) => {
         if (!confirm('ต้องการลบประกาศนี้หรือไม่?')) return;
 
@@ -172,7 +200,15 @@ export default function DashboardPage() {
                                                 <span className="text-xs text-gray-400">/วัน</span>
                                                 <span className="text-xs text-gray-400 ml-1">👁 {item.views || 0}</span>
                                             </div>
-                                            <div className="flex gap-1.5">
+                                            <div className="flex gap-1.5 flex-wrap">
+                                                <button
+                                                    onClick={() => handleToggleAvailability(item._id, item.isAvailable)}
+                                                    className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${item.isAvailable 
+                                                        ? 'bg-amber-50 text-amber-600 hover:bg-amber-100' 
+                                                        : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
+                                                >
+                                                    {item.isAvailable ? 'ซ่อน' : 'เปิดรับจอง'}
+                                                </button>
                                                 <button
                                                     onClick={() => router.push(`/items/${item._id}`)}
                                                     className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"

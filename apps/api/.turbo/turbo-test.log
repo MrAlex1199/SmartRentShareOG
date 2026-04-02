@@ -2,13 +2,13 @@
 > api@0.0.1 test
 > jest
 
-PASS src/app.controller.spec.ts (9.237 s)
+PASS src/app.controller.spec.ts
   AppController
     root
-      √ should return "Hello World!" (8 ms)
+      √ should return "Hello World!" (13 ms)
 
 Test Suites: 1 passed, 1 total
 Tests:       1 passed, 1 total
 Snapshots:   0 total
-Time:        11.387 s
+Time:        3.501 s, estimated 10 s
 Ran all test suites.

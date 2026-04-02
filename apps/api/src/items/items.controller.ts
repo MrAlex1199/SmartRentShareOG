@@ -65,6 +65,16 @@ export class ItemsController {
     }
 
     @UseGuards(JwtAuthGuard)
+    @Patch(':id/availability')
+    setAvailability(
+        @Param('id') id: string,
+        @Body('isAvailable') isAvailable: boolean,
+        @Request() req: any,
+    ) {
+        return this.itemsService.setAvailability(id, req.user.userId, isAvailable);
+    }
+
+    @UseGuards(JwtAuthGuard)
     @Delete(':id')
     remove(@Param('id') id: string, @Request() req: any) {
         return this.itemsService.remove(id, req.user.userId);
