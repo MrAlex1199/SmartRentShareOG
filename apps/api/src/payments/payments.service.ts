@@ -14,6 +14,7 @@ export class PaymentsService {
     constructor(
         @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
         @InjectModel('Booking') private bookingModel: Model<any>,
+        @InjectModel('Item') private itemModel: Model<any>,
         private notificationsService: NotificationsService,
     ) { }
 
@@ -286,6 +287,12 @@ export class PaymentsService {
                 payment.status = PaymentStatus.RELEASED;
                 payment.escrowReleasedAt = new Date();
                 await payment.save();
+            }
+
+            // ✅ Restore item availability so it can be rented again
+            if (booking.item) {
+                await this.itemModel.findByIdAndUpdate(booking.item, { isAvailable: true });
+                this.logger.log(`Item ${booking.item} availability restored after return (booking ${bookingId})`);
             }
 
             // Notify both
