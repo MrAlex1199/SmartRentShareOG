@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
+import { LineNotifyService } from '../notifications/line-notify.service';
 
 @Injectable()
 export class AuthService {
@@ -9,6 +10,7 @@ export class AuthService {
         private usersService: UsersService,
         private jwtService: JwtService,
         private configService: ConfigService,
+        private lineNotifyService: LineNotifyService,
     ) { }
 
     async validateLineLogin(lineProfile: {
@@ -23,6 +25,11 @@ export class AuthService {
                 lineId: lineProfile.userId,
                 displayName: lineProfile.displayName,
                 pictureUrl: lineProfile.pictureUrl,
+            });
+
+            // Trigger Welcome LINE Flex message (Feature 7)
+            await this.lineNotifyService.notifyWelcomeNewUser(user.lineId, user.displayName).catch(err => {
+                console.error('Failed to send welcome message:', err);
             });
         }
 

@@ -76,7 +76,7 @@ export class MessagesController {
             // 2. Send LINE push
             const recipient = await this.userModel.findById(recipientId).select('lineId');
             if (recipient?.lineId) {
-                await this.lineNotifyService.notifyOwnerNewChatMessage(recipient.lineId, {
+                await this.lineNotifyService.notifyNewChatMessage(recipient.lineId, {
                     senderName,
                     itemTitle,
                     messagePreview: preview,

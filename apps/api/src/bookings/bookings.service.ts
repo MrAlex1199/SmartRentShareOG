@@ -275,6 +275,7 @@ export class BookingsService {
                         startDate: format(new Date(updatedBooking.startDate), 'd MMM yyyy', { locale: th }),
                         endDate: format(new Date(updatedBooking.endDate), 'd MMM yyyy', { locale: th }),
                         ownerName: owner?.displayName || 'เจ้าของ',
+                        bookingId: id,
                     });
                 }
                 // In-app

@@ -163,7 +163,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
             // Send LINE push notification to recipient (fire-and-forget)
             this.userModel.findById(recipientId).select('lineId displayName').then(recipient => {
                 if (recipient?.lineId) {
-                    this.lineNotifyService.notifyOwnerNewChatMessage(recipient.lineId, {
+                    this.lineNotifyService.notifyNewChatMessage(recipient.lineId, {
                         senderName,
                         itemTitle,
                         messagePreview: preview,
