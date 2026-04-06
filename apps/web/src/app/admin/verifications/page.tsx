@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Header } from '@/components/Layout/Header';
 import Cookies from 'js-cookie';
 import { formatDistanceToNow } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -16,13 +14,11 @@ interface PendingUser {
     docType?: 'national_id' | 'student_id';
     imageUrl?: string;
     submittedAt?: string;
-    rejectionReason?: string;
   };
   createdAt: string;
 }
 
 export default function AdminVerificationsPage() {
-  const router = useRouter();
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -34,17 +30,17 @@ export default function AdminVerificationsPage() {
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 
   const fetchPending = useCallback(async () => {
-    if (!token) { router.push('/'); return; }
+    if (!token) return;
+    setLoading(true);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/admin/verifications`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 403) { router.push('/'); return; }
       if (res.ok) setUsers(await res.json());
     } finally {
       setLoading(false);
     }
-  }, [token, router]);
+  }, [token]);
 
   useEffect(() => { fetchPending(); }, [fetchPending]);
 
@@ -52,8 +48,7 @@ export default function AdminVerificationsPage() {
     setActionLoading(userId);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/${userId}/verify`, {
-        method: 'PATCH',
-        headers,
+        method: 'PATCH', headers,
         body: JSON.stringify({ action, rejectionReason: reason }),
       });
       if (!res.ok) {
@@ -69,132 +64,124 @@ export default function AdminVerificationsPage() {
     }
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-gray-50"><Header />
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-      </div>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="p-6 lg:p-8 space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">🪪 ยืนยันตัวตน</h1>
+        <p className="text-sm text-gray-400 mt-1">
+          {users.length > 0 ? `มี ${users.length} รายการรอตรวจสอบ` : 'ไม่มีรายการรอตรวจสอบ'}
+        </p>
+      </div>
 
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">🪪 ตรวจสอบการยืนยันตัวตน</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {users.length > 0 ? `มี ${users.length} รายการรอตรวจสอบ` : 'ไม่มีรายการรอตรวจสอบ'}
-          </p>
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-yellow-400" />
         </div>
+      ) : users.length === 0 ? (
+        <div className="bg-[#1E2130] rounded-2xl border border-white/5 p-16 text-center">
+          <p className="text-5xl mb-4">✅</p>
+          <p className="text-white font-semibold">ตรวจสอบครบแล้ว!</p>
+          <p className="text-sm text-gray-500 mt-1">ไม่มีเอกสารรอตรวจสอบ</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {users.map(u => (
+            <div key={u._id} className="bg-[#1E2130] rounded-2xl border border-white/5 hover:border-white/10 transition-all p-6">
+              <div className="flex items-start gap-5">
+                {/* Avatar */}
+                <div className="flex-shrink-0">
+                  {u.pictureUrl ? (
+                    <img src={u.pictureUrl} alt={u.displayName} className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-yellow-400/20 flex items-center justify-center">
+                      <span className="text-lg font-bold text-yellow-400">{u.displayName.charAt(0)}</span>
+                    </div>
+                  )}
+                </div>
 
-        {users.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <p className="text-4xl mb-3">✅</p>
-            <p className="text-gray-500 font-medium">ตรวจสอบครบแล้ว!</p>
-            <p className="text-sm text-gray-400 mt-1">ไม่มีเอกสารรอตรวจสอบ</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {users.map(u => (
-              <div key={u._id} className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-start gap-4">
-                  {/* Avatar */}
-                  <div className="flex-shrink-0">
-                    {u.pictureUrl ? (
-                      <img src={u.pictureUrl} alt={u.displayName} className="w-12 h-12 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
-                        <span className="text-lg font-bold text-gray-900">{u.displayName.charAt(0)}</span>
-                      </div>
-                    )}
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <h3 className="font-semibold text-white">{u.displayName}</h3>
+                      <p className="text-sm text-gray-400 mt-0.5">
+                        {u.verification.docType === 'student_id' ? '🎓 บัตรนักศึกษา' : '🪪 บัตรประชาชน'}
+                        {u.verification.submittedAt && ` · ส่งเมื่อ ${formatDistanceToNow(new Date(u.verification.submittedAt), { locale: th, addSuffix: true })}`}
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-yellow-400/15 text-yellow-400 rounded-lg text-xs font-medium border border-yellow-400/20 whitespace-nowrap">
+                      ⏳ รอตรวจสอบ
+                    </span>
                   </div>
 
-                  {/* Info */}
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="font-semibold text-gray-900">{u.displayName}</h3>
-                        <p className="text-sm text-gray-500 mt-0.5">
-                          {u.verification.docType === 'student_id' ? '🎓 บัตรนักศึกษา' : '🪪 บัตรประชาชน'}
-                          {u.verification.submittedAt && ` · ส่งเมื่อ ${formatDistanceToNow(new Date(u.verification.submittedAt), { locale: th, addSuffix: true })}`}
-                        </p>
+                  {/* ID Card Image */}
+                  {u.verification.imageUrl && (
+                    <button
+                      onClick={() => setSelectedImage(u.verification.imageUrl!)}
+                      className="mt-4 relative group overflow-hidden rounded-xl border border-white/10 hover:border-yellow-400/40 inline-block transition-all"
+                    >
+                      <img
+                        src={u.verification.imageUrl}
+                        alt="ID card"
+                        className="h-28 object-contain"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
+                        <span className="opacity-0 group-hover:opacity-100 text-white text-xs bg-black/70 px-3 py-1.5 rounded-lg">
+                          🔍 ขยายดู
+                        </span>
                       </div>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium whitespace-nowrap">⏳ รอตรวจสอบ</span>
-                    </div>
+                    </button>
+                  )}
 
-                    {/* ID Card Image */}
-                    {u.verification.imageUrl && (
-                      <div className="mt-3">
-                        <button
-                          onClick={() => setSelectedImage(u.verification.imageUrl!)}
-                          className="relative group overflow-hidden rounded-lg border border-gray-200 inline-block"
-                        >
-                          <img
-                            src={u.verification.imageUrl}
-                            alt="ID card"
-                            className="h-32 object-contain group-hover:opacity-90 transition-opacity"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition flex items-center justify-center">
-                            <span className="opacity-0 group-hover:opacity-100 text-white text-xs bg-black/60 px-2 py-1 rounded">ขยาย</span>
-                          </div>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={() => handleAction(u._id, 'approve')}
-                        disabled={actionLoading === u._id}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50 transition-colors"
-                      >
-                        ✅ อนุมัติ
-                      </button>
-                      <button
-                        onClick={() => { setRejectModal({ userId: u._id, name: u.displayName }); setRejectReason(''); }}
-                        disabled={actionLoading === u._id}
-                        className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200 disabled:opacity-50 transition-colors"
-                      >
-                        ❌ ปฏิเสธ
-                      </button>
-                    </div>
+                  {/* Actions */}
+                  <div className="flex gap-3 mt-4">
+                    <button
+                      onClick={() => handleAction(u._id, 'approve')}
+                      disabled={actionLoading === u._id}
+                      className="px-5 py-2 bg-green-500/20 text-green-400 border border-green-500/30 rounded-xl text-sm font-semibold hover:bg-green-500/30 disabled:opacity-50 transition-all"
+                    >
+                      {actionLoading === u._id ? '...' : '✅ อนุมัติ'}
+                    </button>
+                    <button
+                      onClick={() => { setRejectModal({ userId: u._id, name: u.displayName }); setRejectReason(''); }}
+                      disabled={actionLoading === u._id}
+                      className="px-5 py-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl text-sm font-semibold hover:bg-red-500/20 disabled:opacity-50 transition-all"
+                    >
+                      ❌ ปฏิเสธ
+                    </button>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-      {/* ── Image Preview Modal ── */}
+      {/* Image Preview Modal */}
       {selectedImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
           onClick={() => setSelectedImage(null)}
         >
           <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute -top-10 right-0 text-white text-sm hover:underline"
-            >
-              ✕ ปิด
+            <button onClick={() => setSelectedImage(null)} className="absolute -top-10 right-0 text-white/70 hover:text-white text-sm flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              ปิด
             </button>
-            <img src={selectedImage} alt="ID card full" className="w-full rounded-xl object-contain max-h-[80vh]" />
+            <img src={selectedImage} alt="ID full" className="w-full rounded-2xl object-contain max-h-[80vh] shadow-2xl" />
           </div>
         </div>
       )}
 
-      {/* ── Reject Reason Modal ── */}
+      {/* Reject Modal */}
       {rejectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">ปฏิเสธ — {rejectModal.name}</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div className="bg-[#1E2130] border border-white/10 rounded-2xl p-6 w-full max-w-md space-y-4 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">ปฏิเสธการยืนยัน — {rejectModal.name}</h3>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">เหตุผล</label>
-              <div className="space-y-2 mb-2">
+              <p className="text-sm text-gray-400 mb-2">เลือกเหตุผล:</p>
+              <div className="space-y-2 mb-3">
                 {[
                   'รูปไม่ชัดเจน ไม่สามารถอ่านข้อมูลได้',
                   'ไม่ใช่บัตรตามที่ระบุ',
@@ -204,7 +191,11 @@ export default function AdminVerificationsPage() {
                   <button
                     key={r}
                     onClick={() => setRejectReason(r)}
-                    className={`w-full text-left text-sm px-3 py-2 rounded-lg border transition-colors ${rejectReason === r ? 'border-red-400 bg-red-50 text-red-700' : 'border-gray-200 hover:border-gray-300'}`}
+                    className={`w-full text-left text-sm px-4 py-2.5 rounded-xl border transition-all ${
+                      rejectReason === r
+                        ? 'border-red-500/40 bg-red-500/10 text-red-400'
+                        : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-white'
+                    }`}
                   >
                     {r}
                   </button>
@@ -215,17 +206,17 @@ export default function AdminVerificationsPage() {
                 onChange={e => setRejectReason(e.target.value)}
                 rows={2}
                 placeholder="หรือใส่เหตุผลเอง..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                className="w-full px-4 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl text-sm focus:outline-none focus:border-yellow-400/50 resize-none placeholder:text-gray-600"
               />
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setRejectModal(null)} className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50">
+              <button onClick={() => setRejectModal(null)} className="flex-1 py-2.5 bg-white/5 border border-white/10 text-gray-300 rounded-xl font-medium hover:bg-white/10 transition-all">
                 ยกเลิก
               </button>
               <button
                 onClick={() => handleAction(rejectModal.userId, 'reject', rejectReason)}
                 disabled={!rejectReason || actionLoading === rejectModal.userId}
-                className="flex-1 py-2.5 bg-red-600 text-white rounded-lg font-semibold disabled:opacity-50 hover:bg-red-700"
+                className="flex-1 py-2.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl font-semibold disabled:opacity-50 hover:bg-red-500/30 transition-all"
               >
                 ยืนยันปฏิเสธ
               </button>
