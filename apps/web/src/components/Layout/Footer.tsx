@@ -26,7 +26,7 @@ export function Footer() {
 
             {/* LINE OA Contact */}
             <a
-              href="https://line.me/ti/p/~@smartrentshare"
+              href="https://line.me/ti/p/~@211nxlbp"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 bg-[#00B900] hover:bg-[#009900] text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
