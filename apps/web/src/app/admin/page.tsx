@@ -58,7 +58,7 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`px-2 py-1 rounded-full text-xs font-medium ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>{label[status] ?? status}</span>;
 }
 
-type Tab = 'overview' | 'payments' | 'verifications';
+type Tab = 'overview' | 'payments' | 'verifications' | 'users';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -106,6 +106,7 @@ export default function AdminDashboard() {
     { key: 'overview', label: '📊 ภาพรวม' },
     { key: 'payments', label: '💰 Payments' },
     { key: 'verifications', label: '🪪 Verify ตัวตน' },
+    { key: 'users', label: '👥 Users' },
   ];
 
   if (loading) return (
@@ -122,12 +123,12 @@ export default function AdminDashboard() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Page header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">👑 Admin Dashboard</h1>
             <p className="text-sm text-gray-500 mt-1">จัดการแพลตฟอร์ม SmartRentShare</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <button onClick={() => router.push('/admin/verifications')}
               className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
               🪪 ตรวจสอบบัตร
@@ -135,6 +136,10 @@ export default function AdminDashboard() {
             <button onClick={() => router.push('/admin/disputes')}
               className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
               ⚠️ Disputes
+            </button>
+            <button onClick={() => router.push('/admin/users')}
+              className="px-3 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              👥 Users
             </button>
           </div>
         </div>
@@ -269,6 +274,19 @@ export default function AdminDashboard() {
             <button onClick={() => router.push('/admin/verifications')}
               className="px-6 py-2.5 bg-primary text-gray-900 rounded-xl font-semibold hover:bg-primary/90 transition-colors">
               ไปหน้าตรวจสอบบัตร →
+            </button>
+          </div>
+        )}
+
+        {/* ── Tab: Users (redirect) ── */}
+        {tab === 'users' && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 text-center space-y-4">
+            <p className="text-4xl">👥</p>
+            <p className="font-medium text-gray-900">จัดการสมาชิกผู้ใช้งานบนแพลตฟอร์ม</p>
+            <p className="text-sm text-gray-500">ดูรายชื่อ ค้นหา แบน / ปลดแบน และกำหนด Role</p>
+            <button onClick={() => router.push('/admin/users')}
+              className="px-6 py-2.5 bg-gray-900 text-white rounded-xl font-semibold hover:bg-gray-700 transition-colors">
+              ไปหน้าจัดการผู้ใช้ →
             </button>
           </div>
         )}

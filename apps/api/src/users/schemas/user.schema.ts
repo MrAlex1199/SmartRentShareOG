@@ -12,6 +12,12 @@ export enum VerificationStatus {
     REJECTED = 'rejected', // ถูกปฏิเสธ
 }
 
+/** สถานะผู้ใช้งาน */
+export enum UserStatus {
+    ACTIVE = 'active',   // ใช้งานได้ปกติ
+    BANNED = 'banned',   // ถูกแบน
+}
+
 @Schema({ timestamps: true })
 export class User implements Omit<UserInterface, '_id' | 'createdAt' | 'updatedAt'> {
     @Prop({ required: true, unique: true })
@@ -28,6 +34,9 @@ export class User implements Omit<UserInterface, '_id' | 'createdAt' | 'updatedA
 
     @Prop({ default: 'student', enum: ['student', 'admin'] })
     role!: 'student' | 'admin';
+
+    @Prop({ default: UserStatus.ACTIVE, enum: Object.values(UserStatus) })
+    status!: UserStatus;
 
     @Prop({ default: false })
     isVerified!: boolean;

@@ -10,6 +10,7 @@ import {
     UseInterceptors,
     UploadedFile,
     BadRequestException,
+    Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
@@ -104,5 +105,51 @@ export class UsersController {
             action,
             rejectionReason,
         );
+    }
+
+    // ─── Admin: User Management ──────────────────────────────────────
+
+    /** GET /users/admin/list — ดึงรายชื่อผู้ใช้ทั้งหมด (admin only) */
+    @Get('admin/list')
+    @UseGuards(JwtAuthGuard)
+    async listAllUsers(
+        @Request() req: any,
+        @Query('search') search?: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string,
+    ) {
+        return this.usersService.listAll({
+            search,
+            page: page ? parseInt(page) : 1,
+            limit: limit ? parseInt(limit) : 20,
+        });
+    }
+
+    /** PATCH /users/:id/status — Admin แบน / ปลดแบน */
+    @Patch(':id/status')
+    @UseGuards(JwtAuthGuard)
+    async setUserStatus(
+        @Param('id') targetUserId: string,
+        @Body('status') status: 'active' | 'banned',
+        @Request() req: any,
+    ) {
+        if (!['active', 'banned'].includes(status)) {
+            throw new BadRequestException('status ต้องเป็น active หรือ banned');
+        }
+        return this.usersService.setStatus(req.user.userId, targetUserId, status);
+    }
+
+    /** PATCH /users/:id/role — Admin เปลี่ยน role */
+    @Patch(':id/role')
+    @UseGuards(JwtAuthGuard)
+    async setUserRole(
+        @Param('id') targetUserId: string,
+        @Body('role') role: 'student' | 'admin',
+        @Request() req: any,
+    ) {
+        if (!['student', 'admin'].includes(role)) {
+            throw new BadRequestException('role ต้องเป็น student หรือ admin');
+        }
+        return this.usersService.setRole(req.user.userId, targetUserId, role);
     }
 }

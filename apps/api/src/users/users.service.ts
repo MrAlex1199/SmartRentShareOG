@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { User, UserDocument, VerificationStatus } from './schemas/user.schema';
+import { User, UserDocument, VerificationStatus, UserStatus } from './schemas/user.schema';
 
 @Injectable()
 export class UsersService {
@@ -88,5 +88,70 @@ export class UsersService {
             .select('displayName pictureUrl verification createdAt')
             .sort({ 'verification.submittedAt': 1 })
             .exec();
+    }
+
+    // ─── Admin: User Management ──────────────────────────────────────
+
+    /** Admin ดึงรายชื่อผู้ใช้ทั้งหมด พร้อม search + pagination */
+    async listAll(opts: {
+        search?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<{ users: UserDocument[]; total: number }> {
+        const page = Math.max(1, opts.page ?? 1);
+        const limit = Math.min(100, opts.limit ?? 20);
+        const skip = (page - 1) * limit;
+
+        const query: any = {};
+        if (opts.search) {
+            query.displayName = { $regex: opts.search, $options: 'i' };
+        }
+
+        const [users, total] = await Promise.all([
+            this.userModel
+                .find(query)
+                .select('displayName pictureUrl lineId email role status isVerified averageRating totalReviews createdAt verification')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .exec(),
+            this.userModel.countDocuments(query),
+        ]);
+
+        return { users, total };
+    }
+
+    /** Admin แบน / ปลดแบน ผู้ใช้ */
+    async setStatus(
+        adminId: string,
+        targetUserId: string,
+        status: 'active' | 'banned',
+    ): Promise<UserDocument> {
+        const admin = await this.userModel.findById(adminId);
+        if (!admin || admin.role !== 'admin') throw new ForbiddenException('Admin only');
+
+        const user = await this.userModel.findById(targetUserId);
+        if (!user) throw new NotFoundException('User not found');
+        if (user._id.toString() === adminId) throw new BadRequestException('ไม่สามารถแก้ไขสถานะตัวเองได้');
+
+        (user as any).status = status;
+        return user.save();
+    }
+
+    /** Admin เปลี่ยน Role ผู้ใช้ */
+    async setRole(
+        adminId: string,
+        targetUserId: string,
+        role: 'student' | 'admin',
+    ): Promise<UserDocument> {
+        const admin = await this.userModel.findById(adminId);
+        if (!admin || admin.role !== 'admin') throw new ForbiddenException('Admin only');
+
+        const user = await this.userModel.findById(targetUserId);
+        if (!user) throw new NotFoundException('User not found');
+        if (user._id.toString() === adminId) throw new BadRequestException('ไม่สามารถเปลี่ยน Role ตัวเองได้');
+
+        user.role = role;
+        return user.save();
     }
 }
