@@ -14,6 +14,6 @@ import { Booking, BookingSchema } from '../bookings/schemas/booking.schema';
     ],
     controllers: [ItemsController],
     providers: [ItemsService],
-    exports: [ItemsService],
+    exports: [ItemsService, MongooseModule],
 })
 export class ItemsModule { }
