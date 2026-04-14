@@ -6,6 +6,7 @@ import { CreateBookingDto, UpdateBookingStatusDto } from './dto/booking.dto';
 import { AvailabilityService } from './services/availability.service';
 import { LineNotifyService } from '../notifications/line-notify.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditService } from '../audit/audit.service';
 import { parseISO, format } from 'date-fns';
 import { th } from 'date-fns/locale';
 
@@ -18,6 +19,7 @@ export class BookingsService {
         private availabilityService: AvailabilityService,
         private lineNotifyService: LineNotifyService,
         private notificationsService: NotificationsService,
+        private auditService: AuditService,
     ) { }
 
     /**
@@ -109,6 +111,22 @@ export class BookingsService {
         } catch (err) {
             this.logger.warn(`Failed to send in-app notification to owner: ${err}`);
         }
+
+        // Audit log
+        await this.auditService.log({
+            action: 'booking.created',
+            actor: renterId,
+            actorRole: 'student',
+            targetId: savedBooking._id.toString(),
+            targetType: 'Booking',
+            metadata: {
+                itemId: savedBooking.item?.toString(),
+                totalPrice: savedBooking.totalPrice,
+                totalDays: savedBooking.totalDays,
+                startDate: savedBooking.startDate,
+                endDate: savedBooking.endDate,
+            },
+        });
 
         return savedBooking;
     }

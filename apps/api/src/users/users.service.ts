@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument, VerificationStatus, UserStatus } from './schemas/user.schema';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class UsersService {
-    constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) { }
+    constructor(
+        @InjectModel(User.name) private userModel: Model<UserDocument>,
+        private auditService: AuditService,
+    ) { }
 
     async findByLineId(lineId: string): Promise<UserDocument | null> {
         return this.userModel.findOne({ lineId }).exec();
@@ -77,7 +81,19 @@ export class UsersService {
             user.isVerified = true;
         }
 
-        return user.save();
+        const saved = await user.save();
+
+        // Audit log
+        await this.auditService.log({
+            action: action === 'approve' ? 'verification.approved' : 'verification.rejected',
+            actor: adminId,
+            actorRole: 'admin',
+            targetId: targetUserId,
+            targetType: 'Verification',
+            metadata: { docType: user.verification?.docType, reason: rejectionReason },
+        });
+
+        return saved;
     }
 
     /**
@@ -135,7 +151,19 @@ export class UsersService {
         if (user._id.toString() === adminId) throw new BadRequestException('ไม่สามารถแก้ไขสถานะตัวเองได้');
 
         (user as any).status = status;
-        return user.save();
+        const saved = await user.save();
+
+        // Audit log
+        await this.auditService.log({
+            action: status === 'banned' ? 'user.banned' : 'user.unbanned',
+            actor: adminId,
+            actorRole: 'admin',
+            targetId: targetUserId,
+            targetType: 'User',
+            metadata: { displayName: user.displayName, newStatus: status },
+        });
+
+        return saved;
     }
 
     /** Admin เปลี่ยน Role ผู้ใช้ */
@@ -152,6 +180,75 @@ export class UsersService {
         if (user._id.toString() === adminId) throw new BadRequestException('ไม่สามารถเปลี่ยน Role ตัวเองได้');
 
         user.role = role;
+        const saved = await user.save();
+
+        // Audit log
+        await this.auditService.log({
+            action: 'user.role_changed',
+            actor: adminId,
+            actorRole: 'admin',
+            targetId: targetUserId,
+            targetType: 'User',
+            metadata: { displayName: user.displayName, newRole: role },
+        });
+
+        return saved;
+    }
+
+    // ─── Address Management (H3) ────────────────────────────────────
+
+    async addSavedAddress(userId: string, label: string, address: string, isDefault: boolean): Promise<UserDocument> {
+        const user = await this.userModel.findById(userId);
+        if (!user) throw new NotFoundException('User not found');
+
+        const addresses = user.savedAddresses || [];
+
+        // If new address is default, reset others
+        if (isDefault) {
+            addresses.forEach(a => a.isDefault = false);
+        }
+
+        addresses.push({ label, address, isDefault: isDefault || addresses.length === 0 });
+        user.savedAddresses = addresses;
+
+        return user.save();
+    }
+
+    async updateSavedAddress(userId: string, index: number, label: string, address: string, isDefault: boolean): Promise<UserDocument> {
+        const user = await this.userModel.findById(userId);
+        if (!user) throw new NotFoundException('User not found');
+
+        const addresses = user.savedAddresses || [];
+        if (index < 0 || index >= addresses.length) throw new BadRequestException('Invalid address index');
+
+        if (isDefault) {
+            addresses.forEach((a, i) => a.isDefault = (i === index));
+        } else if (addresses[index].isDefault && addresses.length > 1) {
+            // Cannot unset default if it's the only one, another should be default
+            // Just let it unset, UI can handle
+        }
+
+        addresses[index] = { label, address, isDefault: isDefault || addresses[index].isDefault };
+        user.savedAddresses = addresses;
+
+        return user.save();
+    }
+
+    async deleteSavedAddress(userId: string, index: number): Promise<UserDocument> {
+        const user = await this.userModel.findById(userId);
+        if (!user) throw new NotFoundException('User not found');
+
+        const addresses = user.savedAddresses || [];
+        if (index < 0 || index >= addresses.length) throw new BadRequestException('Invalid address index');
+
+        const removed = addresses.splice(index, 1)[0];
+
+        // If deleted default, make first one default
+        if (removed.isDefault && addresses.length > 0) {
+            addresses[0].isDefault = true;
+        }
+
+        user.savedAddresses = addresses;
         return user.save();
     }
 }

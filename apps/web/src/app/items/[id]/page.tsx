@@ -7,6 +7,7 @@ import { Header } from '@/components/Layout/Header';
 import { ImageGallery } from '@/components/ImageGallery';
 import { BookingForm } from '@/components/Booking/BookingForm';
 import { BookingConfirmationModal } from '@/components/Booking/BookingConfirmationModal';
+import { BlackoutDatesModal } from '@/components/Item/BlackoutDatesModal';
 import Cookies from 'js-cookie';
 
 export default function ItemDetailPage() {
@@ -18,7 +19,11 @@ export default function ItemDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [reviews, setReviews] = useState<any[]>([]);
+  
+  // Blackout Modal
+  const [showBlackoutModal, setShowBlackoutModal] = useState(false);
   
   // Booking confirmation modal
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -28,6 +33,16 @@ export default function ItemDetailPage() {
   useEffect(() => {
     const token = Cookies.get('token');
     setIsAuthenticated(!!token);
+    
+    if (token) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(r => r.ok ? r.json() : null)
+      .then(setCurrentUser)
+      .catch(() => {});
+    }
+
     fetchItem();
   }, [itemId]);
 
@@ -351,8 +366,22 @@ export default function ItemDetailPage() {
               </div>
             </div>
           )}
+          {/* ── Right Column - Booking Actions ─────────────────────────── */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24">
+            <div className="sticky top-24 space-y-4">
+              {/* Owner actions */}
+              {isAuthenticated && currentUser && ownerId === currentUser._id && (
+                <div className="bg-white rounded-xl border border-gray-200 p-6">
+                  <h3 className="font-bold text-gray-900 mb-2">จัดการสินค้า (สำหรับเจ้าของ)</h3>
+                  <button
+                    onClick={() => setShowBlackoutModal(true)}
+                    className="w-full py-2.5 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+                  >
+                    จัดการวันหยุดให้เช่า (Blackout Dates)
+                  </button>
+                </div>
+              )}
+
               <BookingForm
                 itemId={itemId}
                 dailyPrice={item.dailyPrice}
@@ -374,6 +403,18 @@ export default function ItemDetailPage() {
           onConfirm={handleConfirmBooking}
           bookingData={bookingData}
           loading={bookingLoading}
+        />
+      )}
+
+      {/* Blackout Dates Modal */}
+      {showBlackoutModal && item && (
+        <BlackoutDatesModal
+          itemId={itemId}
+          isOpen={showBlackoutModal}
+          onClose={() => setShowBlackoutModal(false)}
+          currentBlackoutDates={(item as any).blackoutDates || []}
+          onSuccess={fetchItem}
+          bookedDates={[]}
         />
       )}
     </div>

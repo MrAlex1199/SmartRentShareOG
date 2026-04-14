@@ -25,7 +25,8 @@ export default function CreateItemPage() {
         deposit: '',
         university: 'CU',
         area: '',
-        deliveryType: 'pickup'
+        deliveryType: 'pickup',
+        deliveryFee: '0'
     });
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -75,7 +76,14 @@ export default function CreateItemPage() {
                         university: formData.university,
                         area: formData.area
                     },
-                    deliveryOptions: [formData.deliveryType]
+                    deliveryOptions: formData.deliveryType === 'delivery_only' 
+                        ? ['delivery'] 
+                        : formData.deliveryType === 'both' 
+                            ? ['pickup', 'delivery'] 
+                            : ['pickup'],
+                    deliveryFee: (formData.deliveryType === 'delivery_only' || formData.deliveryType === 'both') 
+                        ? Number(formData.deliveryFee) 
+                        : undefined
                 })
             });
 
@@ -235,21 +243,51 @@ export default function CreateItemPage() {
                         </div>
                     </div>
 
-                    {/* Location */}
+                    {/* Location & Delivery */}
                     <div className="bg-white rounded-xl p-6 shadow-sm space-y-4">
-                        <h2 className="text-lg font-semibold">สถานที่</h2>
+                        <h2 className="text-lg font-semibold">สถานที่ และ การจัดส่ง</h2>
                         
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">จุดนัดรับ/ส่ง *</label>
-                            <input 
-                                required
-                                type="text"
-                                placeholder="เช่น คณะวิศวกรรมศาสตร์ จุฬาฯ"
+                            <label className="block text-sm font-medium text-gray-700 mb-2">วิธีรับ-ส่งสินค้า *</label>
+                            <select 
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                value={formData.area}
-                                onChange={e => setFormData({...formData, area: e.target.value})}
-                            />
+                                value={formData.deliveryType}
+                                onChange={e => setFormData({...formData, deliveryType: e.target.value})}
+                            >
+                                <option value="pickup">นัดรับด้วยตัวเองเท่านั้น (Pickup)</option>
+                                <option value="delivery_only">จัดส่งพัสดุเท่านั้น (Delivery)</option>
+                                <option value="both">รองรับทั้งนัดรับและจัดส่งพัสดุ</option>
+                            </select>
                         </div>
+
+                        {(formData.deliveryType === 'pickup' || formData.deliveryType === 'both') && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">จุดนัดรับ/ส่ง (สำหรับนัดรับ) *</label>
+                                <input 
+                                    required={formData.deliveryType === 'pickup' || formData.deliveryType === 'both'}
+                                    type="text"
+                                    placeholder="เช่น คณะวิศวกรรมศาสตร์ จุฬาฯ"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    value={formData.area}
+                                    onChange={e => setFormData({...formData, area: e.target.value})}
+                                />
+                            </div>
+                        )}
+
+                        {(formData.deliveryType === 'delivery_only' || formData.deliveryType === 'both') && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">ค่าจัดส่ง (บาท) *</label>
+                                <input 
+                                    required={formData.deliveryType === 'delivery_only' || formData.deliveryType === 'both'}
+                                    type="number"
+                                    min="0"
+                                    placeholder="50"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    value={formData.deliveryFee}
+                                    onChange={e => setFormData({...formData, deliveryFee: e.target.value})}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     {/* Submit */}

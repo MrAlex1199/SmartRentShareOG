@@ -79,4 +79,14 @@ export class ItemsController {
     remove(@Param('id') id: string, @Request() req: any) {
         return this.itemsService.remove(id, req.user.userId);
     }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch(':id/blackout')
+    updateBlackoutDates(
+        @Param('id') id: string,
+        @Body('blackoutDates') blackoutDates: { startDate: Date; endDate: Date; reason?: string }[],
+        @Request() req: any,
+    ) {
+        return this.itemsService.updateBlackoutDates(id, blackoutDates, req.user.userId);
+    }
 }

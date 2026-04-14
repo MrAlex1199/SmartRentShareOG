@@ -178,4 +178,16 @@ export class ItemsService {
         );
         return { item: updated, message: isAvailable ? 'เปิดรับจองแล้ว' : 'ซ่อนสินค้าแล้ว' };
     }
+
+    async updateBlackoutDates(id: string, blackoutDates: { startDate: Date; endDate: Date; reason?: string }[], ownerId: string) {
+        const item = await this.itemModel.findById(id);
+        if (!item) throw new NotFoundException('Item not found');
+
+        if (String(item.owner._id || item.owner) !== ownerId) {
+            throw new ForbiddenException('You can only update blackout dates for your own items');
+        }
+
+        item.blackoutDates = blackoutDates || [];
+        return item.save();
+    }
 }

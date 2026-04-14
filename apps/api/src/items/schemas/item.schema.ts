@@ -48,6 +48,18 @@ export class Item implements Omit<ItemInterface, '_id' | 'createdAt' | 'updatedA
     @Prop()
     availableTo?: Date;
 
+    // Blackout Dates (วันหยุดให้เช่า)
+    @Prop({
+        type: [{
+            _id: false,
+            startDate: { type: Date, required: true },
+            endDate: { type: Date, required: true },
+            reason: { type: String },
+        }],
+        default: []
+    })
+    blackoutDates!: { startDate: Date; endDate: Date; reason?: string }[];
+
     // Location
     @Prop({
         type: {

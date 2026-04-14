@@ -5,6 +5,7 @@ import { DateRange } from 'react-day-picker';
 import { DeliveryMethod, CreateBookingDto } from '@repo/shared';
 import { DateRangePicker } from './DateRangePicker';
 import { differenceInDays } from 'date-fns';
+import Cookies from 'js-cookie';
 
 interface BookingFormProps {
   itemId: string;
@@ -32,6 +33,10 @@ export function BookingForm({
   const [bookedDates, setBookedDates] = useState<Array<{ startDate: Date; endDate: Date }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // H3: Saved Addresses
+  const [savedAddresses, setSavedAddresses] = useState<Array<{ label: string; address: string; isDefault: boolean }>>([]);
+  const [selectedAddressMode, setSelectedAddressMode] = useState<'saved' | 'custom'>('custom');
 
   // Fetch booked dates
   useEffect(() => {
@@ -53,7 +58,27 @@ export function BookingForm({
       }
     };
 
+    const fetchUserAddresses = async () => {
+      try {
+        const token = Cookies.get('token');
+        if (!token) return;
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const u = await res.json();
+          if (u.savedAddresses && u.savedAddresses.length > 0) {
+            setSavedAddresses(u.savedAddresses);
+            setSelectedAddressMode('saved');
+            const def = u.savedAddresses.find((a: any) => a.isDefault) || u.savedAddresses[0];
+            setDeliveryAddress(def.address);
+          }
+        }
+      } catch (e) {}
+    };
+
     fetchAvailability();
+    fetchUserAddresses();
   }, [itemId]);
 
   const calculateTotal = () => {
@@ -168,18 +193,60 @@ export function BookingForm({
 
         {/* Delivery Address Input */}
         {deliveryMethod === DeliveryMethod.DELIVERY && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="mt-4 space-y-3">
+            <label className="block text-sm font-medium text-gray-700">
               ที่อยู่สำหรับจัดส่ง
             </label>
-            <textarea
-              value={deliveryAddress}
-              onChange={(e) => setDeliveryAddress(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-              placeholder="กรอกที่อยู่สำหรับจัดส่ง..."
-              required
-            />
+            
+            {savedAddresses.length > 0 && (
+              <div className="flex gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAddressMode('saved');
+                    const def = savedAddresses.find(a => a.isDefault) || savedAddresses[0];
+                    setDeliveryAddress(def.address);
+                  }}
+                  className={`flex-1 py-1.5 text-sm font-medium rounded-lg border ${selectedAddressMode === 'saved' ? 'bg-primary/20 border-primary text-gray-900' : 'bg-white border-gray-200 text-gray-600'}`}
+                >
+                  เลือกจากสมุดที่อยู่
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAddressMode('custom');
+                    setDeliveryAddress('');
+                  }}
+                  className={`flex-1 py-1.5 text-sm font-medium rounded-lg border ${selectedAddressMode === 'custom' ? 'bg-primary/20 border-primary text-gray-900' : 'bg-white border-gray-200 text-gray-600'}`}
+                >
+                  พิมพ์ที่อยู่ใหม่
+                </button>
+              </div>
+            )}
+
+            {selectedAddressMode === 'saved' && savedAddresses.length > 0 ? (
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                value={deliveryAddress}
+                onChange={e => setDeliveryAddress(e.target.value)}
+                required
+              >
+                {savedAddresses.map((addr, idx) => (
+                  <option key={idx} value={addr.address}>
+                    {addr.label} ({addr.address.substring(0, 30)}...)
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <textarea
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="กรอกที่อยู่สำหรับจัดส่ง..."
+                required
+              />
+            )}
           </div>
         )}
 

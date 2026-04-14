@@ -69,6 +69,22 @@ export class User implements Omit<UserInterface, '_id' | 'createdAt' | 'updatedA
         reviewedAt?: Date;
         rejectionReason?: string;
     };
+
+    // ─── Saved Addresses (H3) ──────────────────────────────────────
+    @Prop({
+        type: [{
+            _id: false,
+            label: { type: String, required: true },
+            address: { type: String, required: true },
+            isDefault: { type: Boolean, default: false }
+        }],
+        default: []
+    })
+    savedAddresses!: {
+        label: string;
+        address: string;
+        isDefault: boolean;
+    }[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

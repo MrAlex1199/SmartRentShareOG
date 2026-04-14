@@ -16,6 +16,7 @@ import { UploadModule } from './upload/upload.module';
 import { MessagesModule } from './messages/messages.module';
 import { DisputesModule } from './disputes/disputes.module';
 import { AdminModule } from './admin/admin.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { AdminModule } from './admin/admin.module';
     MessagesModule,
     DisputesModule,
     AdminModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [

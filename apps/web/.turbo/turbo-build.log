@@ -8,19 +8,37 @@
   Creating an optimized production build ...
 ✓ Compiled successfully in 4.0s
   Running TypeScript ...
-  Collecting page data using 5 workers ...
-  Generating static pages using 5 workers (0/5) ...
-  Generating static pages using 5 workers (1/5) 
-  Generating static pages using 5 workers (2/5) 
-  Generating static pages using 5 workers (3/5) 
-✓ Generating static pages using 5 workers (5/5) in 331.5ms
+  Collecting page data using 19 workers ...
+  Generating static pages using 19 workers (0/18) ...
+  Generating static pages using 19 workers (4/18) 
+  Generating static pages using 19 workers (8/18) 
+  Generating static pages using 19 workers (13/18) 
+✓ Generating static pages using 19 workers (18/18) in 573.3ms
   Finalizing page optimization ...
 
 Route (app)
 ┌ ○ /
 ├ ○ /_not-found
-└ ○ /auth/login
+├ ○ /admin
+├ ○ /admin/audit
+├ ○ /admin/disputes
+├ ○ /admin/overview
+├ ○ /admin/payments
+├ ○ /admin/users
+├ ○ /admin/verifications
+├ ○ /auth/login
+├ ○ /bookings
+├ ƒ /bookings/[id]
+├ ƒ /bookings/[id]/chat
+├ ○ /bookings/requests
+├ ○ /dashboard
+├ ○ /dashboard/payouts
+├ ƒ /items/[id]
+├ ○ /items/create
+├ ○ /profile
+└ ƒ /users/[id]
 
 
-○  (Static)  prerendered as static content
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
 

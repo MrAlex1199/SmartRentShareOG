@@ -11,6 +11,7 @@ import {
     UploadedFile,
     BadRequestException,
     Query,
+    Delete,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
@@ -151,5 +152,41 @@ export class UsersController {
             throw new BadRequestException('role ต้องเป็น student หรือ admin');
         }
         return this.usersService.setRole(req.user.userId, targetUserId, role);
+    }
+
+    // ─── Address Management ──────────────────────────────────────────
+
+    @Post('me/addresses')
+    @UseGuards(JwtAuthGuard)
+    async addSavedAddress(
+        @Request() req: any,
+        @Body('label') label: string,
+        @Body('address') address: string,
+        @Body('isDefault') isDefault?: boolean,
+    ) {
+        if (!label || !address) throw new BadRequestException('label และ address ห้ามว่าง');
+        return this.usersService.addSavedAddress(req.user.userId, label, address, !!isDefault);
+    }
+
+    @Patch('me/addresses/:index')
+    @UseGuards(JwtAuthGuard)
+    async updateSavedAddress(
+        @Request() req: any,
+        @Param('index') index: string,
+        @Body('label') label: string,
+        @Body('address') address: string,
+        @Body('isDefault') isDefault?: boolean,
+    ) {
+        if (!label || !address) throw new BadRequestException('label และ address ห้ามว่าง');
+        return this.usersService.updateSavedAddress(req.user.userId, parseInt(index), label, address, !!isDefault);
+    }
+
+    @Delete('me/addresses/:index')
+    @UseGuards(JwtAuthGuard)
+    async deleteSavedAddress(
+        @Request() req: any,
+        @Param('index') index: string,
+    ) {
+        return this.usersService.deleteSavedAddress(req.user.userId, parseInt(index));
     }
 }

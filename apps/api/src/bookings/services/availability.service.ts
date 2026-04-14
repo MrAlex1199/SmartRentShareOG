@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Booking, BookingDocument, BookingStatus } from '../schemas/booking.schema';
@@ -8,6 +8,7 @@ import { differenceInDays, addHours, isBefore, isAfter, parseISO } from 'date-fn
 export class AvailabilityService {
     constructor(
         @InjectModel(Booking.name) private bookingModel: Model<BookingDocument>,
+        @InjectModel('Item') private itemModel: Model<any>,
     ) { }
 
     /**
@@ -22,6 +23,24 @@ export class AvailabilityService {
         startDate: Date,
         endDate: Date,
     ): Promise<boolean> {
+        // 1. Check blackout dates first
+        const item = await this.itemModel.findById(itemId).select('blackoutDates isAvailable');
+        if (!item || !item.isAvailable) return false;
+
+        if (item.blackoutDates && item.blackoutDates.length > 0) {
+            const hasBlackoutConflict = item.blackoutDates.some((b: any) => {
+                const bStart = typeof b.startDate === 'string' ? new Date(b.startDate) : b.startDate;
+                const bEnd = typeof b.endDate === 'string' ? new Date(b.endDate) : b.endDate;
+                
+                // Requested period overlaps with blackout period
+                return startDate <= bEnd && endDate >= bStart;
+            });
+            if (hasBlackoutConflict) {
+                return false;
+            }
+        }
+
+        // 2. Check conflicting bookings
         const conflicts = await this.findConflictingBookings(itemId, startDate, endDate);
         return conflicts.length === 0;
     }
@@ -90,10 +109,23 @@ export class AvailabilityService {
             .select('startDate endDate')
             .sort({ startDate: 1 });
 
-        return bookings.map((booking) => ({
+        const dates: Array<{ startDate: Date; endDate: Date }> = bookings.map((booking) => ({
             startDate: booking.startDate,
             endDate: booking.endDate,
         }));
+
+        // Include blackout dates so the frontend calendar disables them
+        const item = await this.itemModel.findById(itemId).select('blackoutDates');
+        if (item?.blackoutDates?.length) {
+            item.blackoutDates.forEach((b: any) => {
+                dates.push({
+                    startDate: typeof b.startDate === 'string' ? new Date(b.startDate) : b.startDate,
+                    endDate: typeof b.endDate === 'string' ? new Date(b.endDate) : b.endDate,
+                });
+            });
+        }
+
+        return dates;
     }
 
     /**

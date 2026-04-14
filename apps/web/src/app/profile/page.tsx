@@ -6,6 +6,7 @@ import { Header } from '@/components/Layout/Header';
 import Cookies from 'js-cookie';
 import { format, formatDistanceToNow } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { SavedAddressesSection } from './SavedAddressesSection';
 
 /* ─── Types ─── */
 type VerificationStatus = 'none' | 'pending' | 'verified' | 'rejected';
@@ -27,6 +28,11 @@ interface User {
     reviewedAt?: string;
     rejectionReason?: string;
   };
+  savedAddresses?: {
+    label: string;
+    address: string;
+    isDefault: boolean;
+  }[];
 }
 
 interface Review {
@@ -366,6 +372,12 @@ export default function ProfilePage() {
 
         {/* ── Verification Section ── */}
         <VerificationSection user={user} token={token!} onRefresh={fetchProfile} />
+
+        {/* ── Saved Addresses Section ── */}
+        <SavedAddressesSection 
+          addresses={user.savedAddresses || []} 
+          onRefresh={fetchProfile} 
+        />
 
         {/* ── Rating Breakdown ── */}
         {user.totalReviews > 0 && reviews.length > 0 && (

@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
 import { LineNotifyService } from '../notifications/line-notify.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AuthService {
@@ -11,14 +12,16 @@ export class AuthService {
         private jwtService: JwtService,
         private configService: ConfigService,
         private lineNotifyService: LineNotifyService,
+        private auditService: AuditService,
     ) { }
 
     async validateLineLogin(lineProfile: {
         userId: string;
         displayName: string;
         pictureUrl?: string;
-    }) {
+    }, req?: any) {
         let user = await this.usersService.findByLineId(lineProfile.userId);
+        const isNewUser = !user;
 
         if (!user) {
             user = await this.usersService.create({
@@ -33,12 +36,24 @@ export class AuthService {
             });
         }
 
+        // Audit log
+        await this.auditService.log({
+            action: isNewUser ? 'session.register' : 'session.login',
+            actor: (user._id as any).toString(),
+            actorRole: user.role as any,
+            targetId: (user._id as any).toString(),
+            targetType: 'Session',
+            metadata: { displayName: user.displayName },
+            req,
+        });
+
         const payload = { sub: user._id, lineId: user.lineId, role: user.role };
         return {
             access_token: this.jwtService.sign(payload),
             user,
         };
     }
+
 
     async verifyLineToken(idToken: string, clientId: string) {
         // In production, use axios to call LINE API https://api.line.me/oauth2/v2.1/verify
