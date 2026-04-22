@@ -174,28 +174,53 @@ export class BookingsService {
     /**
      * Get all bookings for a user (as renter)
      */
-    async findMyBookings(userId: string) {
-        return this.bookingModel
-            .find({ renter: userId })
-            .populate('item')
-            .populate('owner', 'displayName pictureUrl')
-            .sort({ createdAt: -1 });
+    async findMyBookings(userId: string, status?: string, page: number = 1, limit: number = 10) {
+        const filter: any = { renter: userId };
+        if (status && status !== 'all') {
+            filter.status = status;
+        }
+
+        const skip = (page - 1) * limit;
+
+        const [bookings, total] = await Promise.all([
+            this.bookingModel
+                .find(filter)
+                .populate('item')
+                .populate('owner', 'displayName pictureUrl')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            this.bookingModel.countDocuments(filter)
+        ]);
+
+        return {
+            data: bookings,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
     }
 
     /**
      * Get all booking requests for a user (as owner)
      */
-    async findMyRequests(userId: string) {
+    async findMyRequests(userId: string, status?: string, page: number = 1, limit: number = 10) {
+        const filter: any = {};
+        if (status && status !== 'all') {
+            filter.status = status;
+        }
+
         // First try direct owner field match
         const directMatch = await this.bookingModel
-            .find({ owner: userId })
+            .find({ ...filter, owner: userId })
             .populate('item')
             .populate('renter', 'displayName pictureUrl')
             .sort({ createdAt: -1 });
 
         // Also find bookings where item belongs to this user (handles legacy data)
         const allBookings = await this.bookingModel
-            .find({})
+            .find(filter)
             .populate('item')
             .populate('renter', 'displayName pictureUrl')
             .sort({ createdAt: -1 });
@@ -228,9 +253,21 @@ export class BookingsService {
             }
         }
 
-        return merged.sort((a, b) =>
+        const sorted = merged.sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
+
+        // Apply pagination manually after merge
+        const skip = (page - 1) * limit;
+        const paginatedData = sorted.slice(skip, skip + limit);
+
+        return {
+            data: paginatedData,
+            total: sorted.length,
+            page,
+            limit,
+            totalPages: Math.ceil(sorted.length / limit)
+        };
     }
 
     /**

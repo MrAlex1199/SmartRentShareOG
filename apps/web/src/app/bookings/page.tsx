@@ -1,17 +1,42 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Booking, BookingStatus } from '@repo/shared';
 import { BookingCard } from '@/components/Booking/BookingCard';
 import { Header } from '@/components/Layout/Header';
 import Cookies from 'js-cookie';
 
+interface PaginatedResponse {
+  data: Booking[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+const statusFilters = [
+  { value: 'all', label: 'ทั้งหมด' },
+  { value: 'pending', label: 'รอยืนยัน' },
+  { value: 'confirmed', label: 'ยืนยันแล้ว' },
+  { value: 'paid', label: 'ดำเนินการอยู่' },
+  { value: 'active', label: 'กำลังเช่า' },
+  { value: 'completed', label: 'เสร็จสิ้น' },
+  { value: 'rejected', label: 'ปฏิเสธ' },
+  { value: 'cancelled', label: 'ยกเลิก' },
+];
+
 export default function MyBookingsPage() {
   const router = useRouter();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const searchParams = useSearchParams();
+  
+  const [data, setData] = useState<PaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'past'>('all');
+
+  // States
+  const [filter, setFilter] = useState(searchParams?.get('status') || 'all');
+  const [page, setPage] = useState(Number(searchParams?.get('page')) || 1);
+  const limit = 10;
 
   useEffect(() => {
     const token = Cookies.get('token');
@@ -20,24 +45,37 @@ export default function MyBookingsPage() {
       return;
     }
 
-    fetchBookings();
-  }, []);
+    fetchBookings(page, filter);
+  }, [page, filter]);
 
-  const fetchBookings = async () => {
+  const fetchBookings = async (p: number, s: string) => {
+    setLoading(true);
     try {
       const token = Cookies.get('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/bookings/my-bookings`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/bookings/my-bookings`);
+      url.searchParams.append('page', p.toString());
+      url.searchParams.append('limit', limit.toString());
+      if (s !== 'all') {
+        url.searchParams.append('status', s);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (response.ok) {
-        const data = await response.json();
-        setBookings(data);
+        const result = await response.json();
+        if (Array.isArray(result)) {
+          setData({
+            data: result,
+            total: result.length,
+            page: 1,
+            limit: 100,
+            totalPages: 1
+          });
+        } else {
+          setData(result);
+        }
       }
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -60,119 +98,110 @@ export default function MyBookingsPage() {
       );
 
       if (response.ok) {
-        // Refresh bookings
-        fetchBookings();
+        fetchBookings(page, filter);
       }
     } catch (error) {
       console.error('Error updating booking:', error);
     }
   };
 
-  const filteredBookings = bookings.filter((booking) => {
-    if (filter === 'all') return true;
-    
-    const now = new Date();
-    const startDate = new Date(booking.startDate);
-    const endDate = new Date(booking.endDate);
-    
-    if (filter === 'upcoming') {
-      return startDate > now || (startDate <= now && endDate >= now);
-    } else {
-      return endDate < now;
-    }
-  });
+  const handleFilterChange = (newStatus: string) => {
+    setFilter(newStatus);
+    setPage(1);
+    router.replace(`/bookings?status=${newStatus}&page=1`, { scroll: false });
+  };
 
-  const upcomingCount = bookings.filter((b) => new Date(b.startDate) > new Date()).length;
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    router.replace(`/bookings?status=${filter}&page=${newPage}`, { scroll: false });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const bookings = data?.data || [];
+  const totalItems = data?.total || 0;
+  const totalPages = data?.totalPages || 1;
+
+  // Calculate stats from visible items or globally if we had an endpoint for it
   const activeCount = bookings.filter((b) => b.status === BookingStatus.ACTIVE).length;
+  const completedValue = bookings
+    .filter(b => b.status === BookingStatus.COMPLETED)
+    .reduce((sum, b) => sum + b.totalPrice + (b.deliveryFee || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 lg:pb-8">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 pb-24">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">การจองของฉัน</h1>
-          <p className="text-gray-600">จัดการและติดตามสถานะการจองของคุณ</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">การจองของฉัน</h1>
+            <p className="text-sm text-gray-500">จัดการและติดตามสถานะการจองของคุณ</p>
+          </div>
+          <div className="bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm inline-flex items-center gap-2">
+            <span className="text-gray-500 text-sm">ทั้งหมด</span>
+            <span className="text-xl font-bold text-gray-900">{totalItems}</span>
+            <span className="text-gray-500 text-sm">รายการ</span>
+          </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center">
-            <div className="text-xs text-gray-500 mb-1">การจองทั้งหมด</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{bookings.length} <span className="text-sm font-normal text-gray-500">ครั้ง</span></div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-8">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center shadow-sm">
+            <div className="text-xs text-gray-500 mb-1">การจองในหน้านี้</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{bookings.length} <span className="text-sm font-normal text-gray-500">รายการ</span></div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center">
-            <div className="text-xs text-gray-500 mb-1">สำเร็จแล้ว</div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center shadow-sm">
+            <div className="text-xs text-gray-500 mb-1">สำเร็จแล้ว (ในหน้านี้)</div>
             <div className="text-xl sm:text-2xl font-bold text-green-600">
-              {bookings.filter(b => b.status === BookingStatus.COMPLETED).length} <span className="text-sm font-normal text-gray-500">ครั้ง</span>
+              {bookings.filter(b => b.status === BookingStatus.COMPLETED).length} <span className="text-sm font-normal text-gray-500">รายการ</span>
             </div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center shadow-sm">
             <div className="text-xs text-gray-500 mb-1">มูลค่ารวมที่เช่าสำเร็จ</div>
             <div className="text-xl sm:text-2xl font-bold text-primary">
-              ฿{bookings.filter(b => b.status === BookingStatus.COMPLETED).reduce((sum, b) => sum + b.totalPrice + (b.deliveryFee || 0), 0).toLocaleString()}
+              ฿{completedValue.toLocaleString()}
             </div>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center">
-            <div className="text-xs text-gray-500 mb-1">กำลังเช่า</div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center flex flex-col justify-center shadow-sm">
+            <div className="text-xs text-gray-500 mb-1">กำลังเช่า (ในหน้านี้)</div>
             <div className="text-xl sm:text-2xl font-bold text-purple-600">{activeCount} <span className="text-sm font-normal text-gray-500">รายการ</span></div>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filter === 'all'
-                ? 'bg-primary text-gray-900'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            ทั้งหมด
-          </button>
-          <button
-            onClick={() => setFilter('upcoming')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filter === 'upcoming'
-                ? 'bg-primary text-gray-900'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            กำลังมาถึง / กำลังเช่า
-          </button>
-          <button
-            onClick={() => setFilter('past')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filter === 'past'
-                ? 'bg-primary text-gray-900'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            ผ่านมาแล้ว
-          </button>
+        {/* Scrollable Filters */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+          {statusFilters.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => handleFilterChange(f.value)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                filter === f.value
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
 
         {/* Bookings List */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-gray-600">กำลังโหลด...</p>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900 mx-auto mb-4"></div>
             </div>
           </div>
-        ) : filteredBookings.length === 0 ? (
-          <div className="text-center py-20">
-            <svg className="w-20 h-20 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="text-xl text-gray-500 mb-2">ไม่พบการจอง</p>
-            <p className="text-sm text-gray-400">เริ่มเช่าของที่คุณต้องการกันเถอะ!</p>
+        ) : bookings.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-gray-200 border-dashed">
+            <div className="text-5xl mb-4 opacity-50">🛍️</div>
+            <p className="text-xl font-semibold text-gray-700 mb-2">ไม่พบการจอง</p>
+            <p className="text-sm text-gray-500">เริ่มเช่าของที่คุณต้องการกันเถอะ!</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredBookings.map((booking) => (
+            {bookings.map((booking) => (
               <BookingCard
                 key={booking._id}
                 booking={booking}
@@ -180,6 +209,43 @@ export default function MyBookingsPage() {
                 onStatusUpdate={handleStatusUpdate}
               />
             ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex justify-center items-center gap-2">
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1}
+              className="p-2 rounded-lg border border-gray-200 bg-white disabled:opacity-50 hover:bg-gray-50 transition"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => handlePageChange(p)}
+                  className={`w-10 h-10 rounded-lg text-sm font-medium transition ${
+                    page === p
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages}
+              className="p-2 rounded-lg border border-gray-200 bg-white disabled:opacity-50 hover:bg-gray-50 transition"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
           </div>
         )}
       </main>

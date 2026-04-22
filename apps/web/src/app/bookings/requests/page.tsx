@@ -1,17 +1,42 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Booking, BookingStatus } from '@repo/shared';
 import { BookingCard } from '@/components/Booking/BookingCard';
 import { Header } from '@/components/Layout/Header';
 import Cookies from 'js-cookie';
 
+interface PaginatedResponse {
+  data: Booking[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+const statusFilters = [
+  { value: 'all', label: 'ทั้งหมด' },
+  { value: 'pending', label: 'รอยืนยัน' },
+  { value: 'confirmed', label: 'ยืนยันแล้ว' },
+  { value: 'paid', label: 'ดำเนินการอยู่' },
+  { value: 'active', label: 'กำลังเช่า' },
+  { value: 'completed', label: 'เสร็จสิ้น' },
+  { value: 'rejected', label: 'ปฏิเสธ' },
+  { value: 'cancelled', label: 'ยกเลิก' },
+];
+
 export default function BookingRequestsPage() {
   const router = useRouter();
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const searchParams = useSearchParams();
+  
+  const [data, setData] = useState<PaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'active'>('all');
+  
+  // States
+  const [filter, setFilter] = useState(searchParams?.get('status') || 'all');
+  const [page, setPage] = useState(Number(searchParams?.get('page')) || 1);
+  const limit = 10;
 
   useEffect(() => {
     const token = Cookies.get('token');
@@ -19,25 +44,38 @@ export default function BookingRequestsPage() {
       router.push('/');
       return;
     }
+    fetchBookings(page, filter);
+  }, [page, filter]);
 
-    fetchBookings();
-  }, []);
-
-  const fetchBookings = async () => {
+  const fetchBookings = async (p: number, s: string) => {
+    setLoading(true);
     try {
       const token = Cookies.get('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/bookings/my-requests`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/bookings/my-requests`);
+      url.searchParams.append('page', p.toString());
+      url.searchParams.append('limit', limit.toString());
+      if (s !== 'all') {
+        url.searchParams.append('status', s);
+      }
+
+      const response = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (response.ok) {
-        const data = await response.json();
-        setBookings(data);
+        const result = await response.json();
+        // Fallback for legacy structure where array is returned directly
+        if (Array.isArray(result)) {
+          setData({
+            data: result,
+            total: result.length,
+            page: 1,
+            limit: 100,
+            totalPages: 1
+          });
+        } else {
+          setData(result);
+        }
       }
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -62,109 +100,80 @@ export default function BookingRequestsPage() {
       );
 
       if (response.ok) {
-        // Refresh bookings
-        fetchBookings();
+        fetchBookings(page, filter);
       }
     } catch (error) {
       console.error('Error updating booking:', error);
     }
   };
 
-  const filteredBookings = bookings.filter((booking) => {
-    if (filter === 'all') return true;
-    if (filter === 'pending') return booking.status === BookingStatus.PENDING;
-    if (filter === 'active') return [BookingStatus.CONFIRMED, BookingStatus.PAID, BookingStatus.ACTIVE].includes(booking.status);
-    return true;
-  });
+  const handleFilterChange = (newStatus: string) => {
+    setFilter(newStatus);
+    setPage(1); // Reset to first page
+    router.replace(`/bookings/requests?status=${newStatus}&page=1`, { scroll: false });
+  };
 
-  const pendingCount = bookings.filter((b) => b.status === BookingStatus.PENDING).length;
-  const activeCount = bookings.filter((b) => [BookingStatus.CONFIRMED, BookingStatus.PAID, BookingStatus.ACTIVE].includes(b.status)).length;
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    router.replace(`/bookings/requests?status=${filter}&page=${newPage}`, { scroll: false });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const bookings = data?.data || [];
+  const totalItems = data?.total || 0;
+  const totalPages = data?.totalPages || 1;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 lg:pb-8">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 pb-24">
         {/* Header */}
-        <div className="mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">คำขอจอง</h1>
-          <p className="text-sm text-gray-500">จัดการคำขอจองสำหรับสินค้าของคุณ</p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
-            <div className="text-xs text-gray-500 mb-1">คำขอทั้งหมด</div>
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{bookings.length}</div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">คำขอจอง</h1>
+            <p className="text-sm text-gray-500">จัดการคำขอจองสำหรับสินค้าของคุณ</p>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
-            <div className="text-xs text-gray-500 mb-1">รอยืนยัน</div>
-            <div className="text-xl sm:text-2xl font-bold text-yellow-600">{pendingCount}</div>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 text-center">
-            <div className="text-xs text-gray-500 mb-1">ดำเนินการ</div>
-            <div className="text-xl sm:text-2xl font-bold text-green-600">{activeCount}</div>
+          <div className="bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm inline-flex items-center gap-2">
+            <span className="text-gray-500 text-sm">ทั้งหมด</span>
+            <span className="text-xl font-bold text-gray-900">{totalItems}</span>
+            <span className="text-gray-500 text-sm">รายการ</span>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-1.5 mb-4">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              filter === 'all'
-                ? 'bg-primary text-gray-900'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            ทั้งหมด
-          </button>
-          <button
-            onClick={() => setFilter('pending')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              filter === 'pending'
-                ? 'bg-primary text-gray-900'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            รอยืนยัน
-            {pendingCount > 0 && (
-              <span className="px-1.5 py-0.5 bg-yellow-100 text-yellow-700 text-xs font-bold rounded-full">
-                {pendingCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setFilter('active')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              filter === 'active'
-                ? 'bg-primary text-gray-900'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            ดำเนินการ
-          </button>
+        {/* Scrollable Filters */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+          {statusFilters.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => handleFilterChange(f.value)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap ${
+                filter === f.value
+                  ? 'bg-gray-900 text-white shadow-md'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
 
         {/* Bookings List */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-gray-600">กำลังโหลด...</p>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900 mx-auto mb-4"></div>
             </div>
           </div>
-        ) : filteredBookings.length === 0 ? (
-          <div className="text-center py-20">
-            <svg className="w-20 h-20 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="text-xl text-gray-500 mb-2">ไม่พบคำขอจอง</p>
-            <p className="text-sm text-gray-400">เมื่อมีคนจองสินค้าของคุณ จะแสดงที่นี่</p>
+        ) : bookings.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-2xl border border-gray-200 border-dashed">
+            <div className="text-5xl mb-4 opacity-50">📂</div>
+            <p className="text-xl font-semibold text-gray-700 mb-2">ไม่พบข้อมูล</p>
+            <p className="text-sm text-gray-500">ไม่มีคำขอจองในสถานะนี้</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredBookings.map((booking) => (
+          <div className="space-y-4">
+            {bookings.map((booking) => (
               <BookingCard
                 key={booking._id}
                 booking={booking}
@@ -174,7 +183,45 @@ export default function BookingRequestsPage() {
             ))}
           </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-8 flex justify-center items-center gap-2">
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1}
+              className="p-2 rounded-lg border border-gray-200 bg-white disabled:opacity-50 hover:bg-gray-50 transition"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => handlePageChange(p)}
+                  className={`w-10 h-10 rounded-lg text-sm font-medium transition ${
+                    page === p
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages}
+              className="p-2 rounded-lg border border-gray-200 bg-white disabled:opacity-50 hover:bg-gray-50 transition"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );
 }
+

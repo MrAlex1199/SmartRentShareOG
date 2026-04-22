@@ -23,11 +23,17 @@ export default function CreateItemPage() {
         condition: ItemCondition.GOOD,
         dailyPrice: '',
         deposit: '',
-        university: 'CU',
+        province: 'กรุงเทพมหานคร',
+        district: '',
         area: '',
         deliveryType: 'pickup',
         deliveryFee: '0'
     });
+
+    const PROVINCES = [
+        'กรุงเทพมหานคร', 'สมุทรปราการ', 'นนทบุรี', 'ปทุมธานี', 
+        'เชียงใหม่', 'ขอนแก่น', 'ชลบุรี', 'ภูเก็ต', 'นครราชสีมา', 'สงขลา'
+    ];
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
         setImages(prev => [...prev, ...acceptedFiles]);
@@ -73,8 +79,9 @@ export default function CreateItemPage() {
                     deposit: Number(formData.deposit),
                     images: imageUrls,
                     location: {
-                        university: formData.university,
-                        area: formData.area
+                        province: formData.province,
+                        district: formData.district,
+                        area: formData.area || '-' // fallback if area is hidden for delivery_only
                     },
                     deliveryOptions: formData.deliveryType === 'delivery_only' 
                         ? ['delivery'] 
@@ -247,6 +254,33 @@ export default function CreateItemPage() {
                     <div className="bg-white rounded-xl p-6 shadow-sm space-y-4">
                         <h2 className="text-lg font-semibold">สถานที่ และ การจัดส่ง</h2>
                         
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">จังหวัด *</label>
+                                <select 
+                                    required
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    value={formData.province}
+                                    onChange={e => setFormData({...formData, province: e.target.value})}
+                                >
+                                    {PROVINCES.map(p => (
+                                        <option key={p} value={p}>{p}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">เขต/อำเภอ *</label>
+                                <input 
+                                    required
+                                    type="text"
+                                    placeholder="เช่น ปทุมวัน"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    value={formData.district}
+                                    onChange={e => setFormData({...formData, district: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">วิธีรับ-ส่งสินค้า *</label>
                             <select 
@@ -266,7 +300,7 @@ export default function CreateItemPage() {
                                 <input 
                                     required={formData.deliveryType === 'pickup' || formData.deliveryType === 'both'}
                                     type="text"
-                                    placeholder="เช่น คณะวิศวกรรมศาสตร์ จุฬาฯ"
+                                    placeholder="เช่น BTS สยาม หรือ คณะวิศวะ จุฬาฯ"
                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                                     value={formData.area}
                                     onChange={e => setFormData({...formData, area: e.target.value})}

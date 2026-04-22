@@ -258,10 +258,7 @@ export default function ItemDetailPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     <div>
-                      <p className="font-medium text-gray-900">{item.location.university}</p>
-                      {item.location.building && (
-                        <p className="text-sm text-gray-600">{item.location.building}</p>
-                      )}
+                      <p className="font-medium text-gray-900">{item.location.province} - {item.location.district}</p>
                       <p className="text-sm text-gray-600">{item.location.area}</p>
                     </div>
                   </div>

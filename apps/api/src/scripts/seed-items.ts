@@ -21,9 +21,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'มหาวิทยาลัยเกษตรศาสตร์',
-            building: 'หอพักนักศึกษา A',
-            area: 'บางเขน',
+            province: 'กรุงเทพมหานคร',
+            district: 'บางเขน',
+            area: 'ม.เกษตร',
         },
         deliveryOptions: ['pickup', 'delivery'],
         deliveryFee: 100,
@@ -44,9 +44,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'จุฬาลงกรณ์มหาวิทยาลัย',
-            building: 'หอพักศรีวิชัย',
-            area: 'ปทุมวัน',
+            province: 'กรุงเทพมหานคร',
+            district: 'ปทุมวัน',
+            area: 'จุฬาฯ',
         },
         deliveryOptions: ['pickup'],
         condition: 'good',
@@ -66,9 +66,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'มหาวิทยาลัยธรรมศาสตร์',
-            building: 'หอพักรังสิต',
-            area: 'รังสิต',
+            province: 'ปทุมธานี',
+            district: 'คลองหลวง',
+            area: 'ม.ธรรมศาสตร์ รังสิต',
         },
         deliveryOptions: ['pickup', 'delivery'],
         deliveryFee: 80,
@@ -89,9 +89,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'มหาวิทยาลัยมหิดล',
-            building: 'คอนโดใกล้มหิดล',
-            area: 'ศาลายา',
+            province: 'นครปฐม',
+            district: 'พุทธมณฑล',
+            area: 'ม.มหิดล ศาลายา',
         },
         deliveryOptions: ['delivery'],
         deliveryFee: 300,
@@ -112,9 +112,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'มหาวิทยาลัยเกษตรศาสตร์',
-            building: 'หอพักนักศึกษา C',
-            area: 'บางเขน',
+            province: 'กรุงเทพมหานคร',
+            district: 'บางเขน',
+            area: 'ม.เกษตร',
         },
         deliveryOptions: ['pickup', 'delivery'],
         deliveryFee: 50,
@@ -135,9 +135,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'จุฬาลงกรณ์มหาวิทยาลัย',
-            building: 'หอพักอินเตอร์',
-            area: 'ปทุมวัน',
+            province: 'กรุงเทพมหานคร',
+            district: 'ปทุมวัน',
+            area: 'จุฬาฯ',
         },
         deliveryOptions: ['pickup', 'delivery'],
         deliveryFee: 100,
@@ -158,9 +158,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'มหาวิทยาลัยธรรมศาสตร์',
-            building: 'หอพักท่าพระจันทร์',
-            area: 'ท่าพระจันทร์',
+            province: 'กรุงเทพมหานคร',
+            district: 'พระนคร',
+            area: 'ม.ธรรมศาสตร์ ท่าพระจันทร์',
         },
         deliveryOptions: ['pickup'],
         condition: 'good',
@@ -180,9 +180,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'มหาวิทยาลัยเกษตรศาสตร์',
-            building: 'หอพักวิศวกรรม',
-            area: 'บางเขน',
+            province: 'กรุงเทพมหานคร',
+            district: 'บางเขน',
+            area: 'ม.เกษตร',
         },
         deliveryOptions: ['pickup', 'delivery'],
         deliveryFee: 60,
@@ -203,9 +203,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'มหาวิทยาลัยมหิดล',
-            building: 'หอพักศาลายา',
-            area: 'ศาลายา',
+            province: 'นครปฐม',
+            district: 'พุทธมณฑล',
+            area: 'ม.มหิดล ศาลายา',
         },
         deliveryOptions: ['pickup', 'delivery'],
         deliveryFee: 120,
@@ -226,9 +226,9 @@ const mockItems = [
         ],
         isAvailable: true,
         location: {
-            university: 'จุฬาลงกรณ์มหาวิทยาลัย',
-            building: 'หอพักจามจุรี',
-            area: 'ปทุมวัน',
+            province: 'กรุงเทพมหานคร',
+            district: 'ปทุมวัน',
+            area: 'จุฬาฯ',
         },
         deliveryOptions: ['delivery'],
         deliveryFee: 250,
@@ -268,9 +268,11 @@ async function seedItems() {
 
         console.log(`📝 Using owner: ${owner.displayName}`);
 
-        // Clear existing items (optional)
-        const deleteResult = await itemsCollection.deleteMany({});
-        console.log(`🗑️  Deleted ${deleteResult.deletedCount} existing items`);
+        // Clear existing items, bookings, and payments
+        const itemsDelete = await itemsCollection.deleteMany({});
+        const bookingsDelete = await db.collection('bookings').deleteMany({});
+        const paymentsDelete = await db.collection('payments').deleteMany({});
+        console.log(`🗑️  Deleted ${itemsDelete.deletedCount} items, ${bookingsDelete.deletedCount} bookings, ${paymentsDelete.deletedCount} payments`);
 
         // Insert mock items
         const itemsToInsert = mockItems.map(item => ({

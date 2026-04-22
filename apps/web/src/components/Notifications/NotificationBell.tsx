@@ -84,6 +84,20 @@ export function NotificationBell() {
         }
     };
 
+    const clearReadNotifications = async () => {
+        try {
+            const token = Cookies.get('token');
+            await fetch(`${apiUrl}/notifications/clear-read`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            // Remove read notifications from local state
+            setNotifications(prev => prev.filter(n => !n.isRead));
+        } catch (err) {
+            console.error('Failed to clear notifications:', err);
+        }
+    };
+
     const handleNotificationClick = async (notification: Notification) => {
         // Mark as read
         if (!notification.isRead) {
@@ -100,13 +114,15 @@ export function NotificationBell() {
             } catch { }
         }
 
-        // Navigate to booking if available
+        // Navigate: ถ้ามี bookingId ไปหน้า booking นั้น, ถ้าไม่มีไปหน้า /bookings
+        setIsOpen(false);
         if (notification.bookingId) {
-            setIsOpen(false);
             const path = notification.type === 'chat_message'
                 ? `/bookings/${notification.bookingId}/chat`
                 : `/bookings/${notification.bookingId}`;
             router.push(path);
+        } else {
+            router.push('/bookings');
         }
     };
 
@@ -166,14 +182,25 @@ export function NotificationBell() {
                     {/* Header */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                         <h3 className="font-semibold text-gray-900">การแจ้งเตือน</h3>
-                        {unreadCount > 0 && (
-                            <button
-                                onClick={markAllAsRead}
-                                className="text-xs text-primary hover:underline font-medium"
-                            >
-                                อ่านทั้งหมด
-                            </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {unreadCount > 0 && (
+                                <button
+                                    onClick={markAllAsRead}
+                                    className="text-xs text-primary hover:underline font-medium"
+                                >
+                                    อ่านทั้งหมด
+                                </button>
+                            )}
+                            {notifications.some(n => n.isRead) && (
+                                <button
+                                    onClick={clearReadNotifications}
+                                    className="text-xs text-gray-400 hover:text-red-500 hover:underline font-medium transition-colors"
+                                    title="ลบการแจ้งเตือนที่อ่านแล้ว"
+                                >
+                                    🗑️ ล้าง
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Notification list */}

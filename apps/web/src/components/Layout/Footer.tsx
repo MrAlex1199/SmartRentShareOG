@@ -1,7 +1,14 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export function Footer() {
+  const pathname = usePathname();
   const year = new Date().getFullYear();
+
+  // ซ่อน Footer ในหน้า Admin และหน้า Auth
+  if (pathname.startsWith('/admin') || pathname.startsWith('/auth')) return null;
 
   return (
     <footer className="hidden lg:block bg-gray-900 text-gray-300 mt-auto">

@@ -17,8 +17,8 @@ export enum ItemCondition {
 }
 
 export interface ItemLocation {
-    university: string;
-    building?: string;
+    province: string;
+    district: string;
     area: string;
 }
 

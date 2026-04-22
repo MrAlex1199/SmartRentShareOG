@@ -89,6 +89,17 @@ export class NotificationsService {
         );
     }
 
+    /**
+     * Delete all read notifications for a user (clear inbox)
+     */
+    async clearReadNotifications(userId: string): Promise<{ deleted: number }> {
+        const result = await this.notificationModel.deleteMany({
+            user: new Types.ObjectId(userId),
+            isRead: true,
+        });
+        return { deleted: result.deletedCount ?? 0 };
+    }
+
     // ─── Notification Helpers ─────────────────────────────────────────────────
 
     async notifyNewBooking(ownerId: string, data: { itemTitle: string; renterName: string; bookingId: string }) {

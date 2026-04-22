@@ -53,8 +53,10 @@ export function Header() {
     AuthLib.logout();
   };
 
-  const navLink = (href: string, label: string, exact = false) => {
-    const active = exact ? pathname === href : pathname.startsWith(href);
+  const navLink = (href: string, label: string, exact = false, excludePrefixes: string[] = []) => {
+    const active = exact
+      ? pathname === href
+      : pathname.startsWith(href) && !excludePrefixes.some(p => pathname.startsWith(p));
     return (
       <Link
         href={href}
@@ -84,9 +86,9 @@ export function Header() {
             {navLink('/', 'หน้าแรก', true)}
             {!loading && isAuthenticated && (
               <>
-                {navLink('/bookings', 'การจองของฉัน')}
+                {navLink('/bookings', 'การจองของฉัน', false, ['/bookings/requests'])}
                 {navLink('/bookings/requests', 'คำขอจอง')}
-                {navLink('/dashboard', 'ของฉัน')}
+                {navLink('/dashboard', 'สินค้าของฉัน')}
                 {userProfile?.role === 'admin' && navLink('/admin', '👑 Admin')}
                 <Link href="/items/create" className="ml-1 px-4 py-2 bg-primary text-gray-900 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors shadow-sm">
                   + ลงประกาศ

@@ -410,7 +410,7 @@ export class PaymentsService {
         const bookingIds = bookings.map((b: any) => b._id);
         if (!bookingIds.length) return [];
 
-        return this.paymentModel
+        const payouts = await this.paymentModel
             .find({ booking: { $in: bookingIds } })
             .populate({
                 path: 'booking',
@@ -421,5 +421,19 @@ export class PaymentsService {
             })
             .sort({ createdAt: -1 })
             .lean();
+
+        // Fallback for legacy data that doesn't have ownerReceivesAmount
+        return payouts.map((p: any) => {
+            if (p.ownerReceivesAmount === undefined || p.ownerReceivesAmount === null) {
+                const feeAmount = Math.round(p.amount * PLATFORM_FEE_PERCENT / 100);
+                return {
+                    ...p,
+                    platformFeePercent: PLATFORM_FEE_PERCENT,
+                    platformFeeAmount: feeAmount,
+                    ownerReceivesAmount: p.amount - feeAmount,
+                };
+            }
+            return p;
+        });
     }
 }

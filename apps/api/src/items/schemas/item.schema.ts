@@ -63,16 +63,16 @@ export class Item implements Omit<ItemInterface, '_id' | 'createdAt' | 'updatedA
     // Location
     @Prop({
         type: {
-            university: { type: String, required: true },
-            building: { type: String },
+            province: { type: String, required: true },
+            district: { type: String, required: true },
             area: { type: String, required: true }
         },
         required: true,
         _id: false
     })
     location!: {
-        university: string;
-        building?: string;
+        province: string;
+        district: string;
         area: string;
     };
 
