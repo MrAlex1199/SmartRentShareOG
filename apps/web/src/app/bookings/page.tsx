@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Booking, BookingStatus } from '@repo/shared';
 import { BookingCard } from '@/components/Booking/BookingCard';
@@ -26,7 +26,7 @@ const statusFilters = [
   { value: 'cancelled', label: 'ยกเลิก' },
 ];
 
-export default function MyBookingsPage() {
+function MyBookingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -252,3 +252,16 @@ export default function MyBookingsPage() {
     </div>
   );
 }
+
+export default function MyBookingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-900" />
+      </div>
+    }>
+      <MyBookingsContent />
+    </Suspense>
+  );
+}
+
