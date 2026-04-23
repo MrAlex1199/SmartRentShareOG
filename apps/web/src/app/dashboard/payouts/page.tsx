@@ -9,10 +9,11 @@ import { th } from 'date-fns/locale';
 
 interface PayoutItem {
   _id: string;
-  amount: number;
+  amount: number;           // total paid by renter (rent + delivery + deposit)
   platformFeeAmount: number;
-  ownerReceivesAmount: number;
+  ownerReceivesAmount: number; // rent - GP only
   platformFeePercent: number;
+  depositAmount: number;    // deposit held separately
   status: 'pending' | 'submitted' | 'verified' | 'rejected' | 'released';
   createdAt: string;
   submittedAt?: string;
@@ -22,6 +23,7 @@ interface PayoutItem {
     status: string;
     startDate: string;
     endDate: string;
+    totalPrice: number;
     item: { title: string; images: string[] };
     renter: { displayName: string; pictureUrl?: string };
   };

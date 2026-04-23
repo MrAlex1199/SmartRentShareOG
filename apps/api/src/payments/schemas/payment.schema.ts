@@ -50,18 +50,22 @@ export class Payment {
     @Prop()
     resolvedAt?: Date;
 
-    // ─── Platform GP (10%) ───────────────────────────────────────
-    /** GP percentage charged by platform (default: 10) */
-    @Prop({ default: 10 })
+    // ─── Platform GP (20%) ───────────────────────────────────────
+    /** GP percentage charged by platform (default: 20) */
+    @Prop({ default: 20 })
     platformFeePercent!: number;
 
-    /** Platform fee amount = totalRentalPrice × platformFeePercent / 100 */
+    /** Platform fee amount = rentalPrice × 20% (deposit excluded) */
     @Prop({ default: 0 })
     platformFeeAmount!: number;
 
-    /** Amount owner actually receives = amount - platformFeeAmount */
+    /** Amount owner actually receives = rentalPrice - platformFeeAmount (deposit not included) */
     @Prop({ default: 0 })
     ownerReceivesAmount!: number;
+
+    /** Deposit amount held separately — returned in full to renter after completion */
+    @Prop({ default: 0 })
+    depositAmount!: number;
 
     /** Timestamp when escrow was released to owner */
     @Prop()

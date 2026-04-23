@@ -5,7 +5,8 @@ import { Payment, PaymentDocument, PaymentStatus } from './schemas/payment.schem
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/schemas/notification.schema';
 
-const PLATFORM_FEE_PERCENT = 10;
+// Platform fee = 20% of rent only (excluding deposit)
+const PLATFORM_FEE_PERCENT = 20;
 
 @Injectable()
 export class PaymentsService {
@@ -33,9 +34,13 @@ export class PaymentsService {
 
         let payment = await this.paymentModel.findOne({ booking: new Types.ObjectId(bookingId) });
         if (!payment) {
-            const totalAmount = booking.totalPrice + (booking.deliveryFee || 0) + (booking.deposit || 0);
-            const platformFeeAmount = Math.round(booking.totalPrice * PLATFORM_FEE_PERCENT / 100);
-            const ownerReceivesAmount = totalAmount - platformFeeAmount;
+            // totalPrice = rent only (dailyPrice * days)
+            // deposit is held separately and returned in full after completion
+            const rentAmount = booking.totalPrice + (booking.deliveryFee || 0);
+            const depositAmount = booking.deposit || 0;
+            const totalAmount = rentAmount + depositAmount; // what renter pays
+            const platformFeeAmount = Math.round(booking.totalPrice * PLATFORM_FEE_PERCENT / 100); // GP on rent only
+            const ownerReceivesAmount = booking.totalPrice - platformFeeAmount; // owner gets rent minus GP (delivery fee goes separate)
 
             payment = new this.paymentModel({
                 booking: new Types.ObjectId(bookingId),
@@ -45,6 +50,7 @@ export class PaymentsService {
                 platformFeePercent: PLATFORM_FEE_PERCENT,
                 platformFeeAmount,
                 ownerReceivesAmount,
+                depositAmount,
             });
             await payment.save();
         }
@@ -66,8 +72,11 @@ export class PaymentsService {
 
         let payment = await this.paymentModel.findOne({ booking: new Types.ObjectId(bookingId) });
         if (!payment) {
-            const totalAmount = booking.totalPrice + (booking.deliveryFee || 0) + (booking.deposit || 0);
+            const rentAmount = booking.totalPrice + (booking.deliveryFee || 0);
+            const depositAmount = booking.deposit || 0;
+            const totalAmount = rentAmount + depositAmount;
             const platformFeeAmount = Math.round(booking.totalPrice * PLATFORM_FEE_PERCENT / 100);
+            const ownerReceivesAmount = booking.totalPrice - platformFeeAmount;
             payment = new this.paymentModel({
                 booking: new Types.ObjectId(bookingId),
                 payer: new Types.ObjectId(userId),
@@ -75,7 +84,8 @@ export class PaymentsService {
                 status: PaymentStatus.PENDING,
                 platformFeePercent: PLATFORM_FEE_PERCENT,
                 platformFeeAmount,
-                ownerReceivesAmount: totalAmount - platformFeeAmount,
+                ownerReceivesAmount,
+                depositAmount,
             });
         }
 
@@ -425,12 +435,15 @@ export class PaymentsService {
         // Fallback for legacy data that doesn't have ownerReceivesAmount
         return payouts.map((p: any) => {
             if (p.ownerReceivesAmount === undefined || p.ownerReceivesAmount === null) {
-                const feeAmount = Math.round(p.amount * PLATFORM_FEE_PERCENT / 100);
+                // Legacy: recalculate based on rent only (exclude deposit from fee base)
+                const booking: any = p.booking;
+                const rentOnly = (booking?.totalPrice || p.amount) as number;
+                const feeAmount = Math.round(rentOnly * PLATFORM_FEE_PERCENT / 100);
                 return {
                     ...p,
                     platformFeePercent: PLATFORM_FEE_PERCENT,
                     platformFeeAmount: feeAmount,
-                    ownerReceivesAmount: p.amount - feeAmount,
+                    ownerReceivesAmount: rentOnly - feeAmount,
                 };
             }
             return p;

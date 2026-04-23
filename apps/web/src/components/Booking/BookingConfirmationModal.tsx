@@ -38,7 +38,13 @@ export function BookingConfirmationModal({
     });
   };
 
-  const grandTotal = bookingData.totalPrice + bookingData.deposit + (bookingData.deliveryFee || 0);
+  const GP_PERCENT = 20;
+  const rentTotal = bookingData.totalPrice; // ค่าเช่าล้วน
+  const deliveryFee = bookingData.deliveryFee || 0;
+  const deposit = bookingData.deposit;
+  const grandTotal = rentTotal + deliveryFee + deposit; // ยอดรวมที่ผู้เช่าต้องจ่าย
+  const gpFee = Math.round(rentTotal * GP_PERCENT / 100); // GP 20% จากค่าเช่าเท่านั้น
+  const ownerReceives = rentTotal - gpFee;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -103,26 +109,51 @@ export function BookingConfirmationModal({
             </div>
             
             <div className="border-t border-gray-200 pt-3 space-y-2">
+              {/* Rent */}
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">ค่าเช่า ({bookingData.totalDays} วัน)</span>
-                <span className="text-gray-900">{bookingData.totalPrice.toLocaleString()} ฿</span>
+                <span className="text-gray-900">{rentTotal.toLocaleString()} ฿</span>
               </div>
-              {bookingData.deliveryFee && bookingData.deliveryFee > 0 && (
+              {/* Delivery */}
+              {deliveryFee > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">ค่าจัดส่ง</span>
-                  <span className="text-gray-900">{bookingData.deliveryFee.toLocaleString()} ฿</span>
+                  <span className="text-gray-900">{deliveryFee.toLocaleString()} ฿</span>
                 </div>
               )}
+              {/* Deposit — clearly separated */}
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">ค่ามัดจำ</span>
-                <span className="text-gray-900">{bookingData.deposit.toLocaleString()} ฿</span>
+                <span className="text-gray-600 flex items-center gap-1">
+                  ค่ามัดจำ
+                  <span className="text-xs text-green-600 font-medium">(คืนเต็มจำนวน)</span>
+                </span>
+                <span className="text-gray-900">{deposit.toLocaleString()} ฿</span>
               </div>
             </div>
 
+            {/* Grand Total */}
             <div className="border-t-2 border-gray-300 pt-3">
               <div className="flex justify-between">
-                <span className="font-semibold text-gray-900">ยอดรวมทั้งหมด</span>
+                <span className="font-semibold text-gray-900">ยอดรวมที่ต้องชำระ</span>
                 <span className="text-xl font-bold text-primary">{grandTotal.toLocaleString()} ฿</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1 text-right">รวมค่ามัดจำ {deposit.toLocaleString()} ฿ ที่จะคืนหลังจบการเช่า</p>
+            </div>
+
+            {/* GP Info */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-xs text-amber-800 font-medium mb-1">ข้อมูลสำหรับเจ้าของสินค้า</p>
+              <div className="flex justify-between text-xs text-amber-700">
+                <span>ค่าเช่า</span>
+                <span>{rentTotal.toLocaleString()} ฿</span>
+              </div>
+              <div className="flex justify-between text-xs text-amber-700">
+                <span>หัก GP แพลตฟอร์ม ({GP_PERCENT}%)</span>
+                <span>- {gpFee.toLocaleString()} ฿</span>
+              </div>
+              <div className="flex justify-between text-xs font-semibold text-amber-900 border-t border-amber-300 mt-1 pt-1">
+                <span>เจ้าของได้รับ</span>
+                <span>{ownerReceives.toLocaleString()} ฿</span>
               </div>
             </div>
           </div>
