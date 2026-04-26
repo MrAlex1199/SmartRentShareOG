@@ -411,13 +411,33 @@ export class PaymentsService {
 
     // ─────────────────────────────────── Owner Payouts ───────────────────────────────────
     async getOwnerPayouts(userId: string): Promise<any[]> {
-        // Find all bookings owned by the user that have payments
-        const bookings = await this.bookingModel
-            .find({ owner: new Types.ObjectId(userId) })
+        // Find all bookings owned by the user (handle both direct owner field and legacy item.owner)
+        const directBookings = await this.bookingModel
+            .find({ owner: userId })
             .select('_id')
             .lean();
 
-        const bookingIds = bookings.map((b: any) => b._id);
+        // Fallback for legacy bookings where owner is missing but item belongs to this user
+        let legacyBookingIds: any[] = [];
+        try {
+            const allItems = await this.itemModel.find({ owner: userId }).select('_id').lean();
+            const itemIds = allItems.map((i: any) => i._id);
+            if (itemIds.length > 0) {
+                const legacyBookings = await this.bookingModel
+                    .find({ item: { $in: itemIds }, owner: { $exists: false } })
+                    .select('_id')
+                    .lean();
+                legacyBookingIds = legacyBookings.map((b: any) => b._id);
+            }
+        } catch (e) {
+            this.logger.warn(`Failed to fetch legacy bookings for owner ${userId}: ${e}`);
+        }
+
+        const bookingIds = [
+            ...directBookings.map((b: any) => b._id),
+            ...legacyBookingIds
+        ];
+
         if (!bookingIds.length) return [];
 
         const payouts = await this.paymentModel

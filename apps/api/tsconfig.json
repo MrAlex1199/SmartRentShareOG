@@ -18,6 +18,10 @@
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "noFallthroughCasesInSwitch": true,
-    "noEmit": false
+    "noEmit": false,
+    "paths": {
+      "@repo/shared": ["../../packages/shared/dist"],
+      "@repo/shared/*": ["../../packages/shared/dist/*"]
+    }
   }
 }
