@@ -24,6 +24,11 @@ export class ItemsController {
         return this.itemsService.findRecent(limit ? Number(limit) : 10);
     }
 
+    @Get('provinces')
+    getDistinctProvinces() {
+        return this.itemsService.getDistinctProvinces();
+    }
+
     @UseGuards(JwtAuthGuard)
     @Get('my-listings')
     findMyListings(@Request() req: any) {
@@ -40,6 +45,8 @@ export class ItemsController {
         @Query('limit') limit?: string,
         @Query('skip') skip?: string,
         @Query('owner') owner?: string,
+        @Query('province') province?: string,
+        @Query('district') district?: string,
     ) {
         return this.itemsService.findAll({
             category,
@@ -50,6 +57,8 @@ export class ItemsController {
             limit: limit ? Number(limit) : undefined,
             skip: skip ? Number(skip) : undefined,
             owner,
+            province,
+            district,
         });
     }
 

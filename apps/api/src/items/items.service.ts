@@ -28,6 +28,8 @@ export class ItemsService {
         limit?: number;
         skip?: number;
         owner?: string;
+        province?: string;
+        district?: string;
     }): Promise<Item[]> {
         const filter: any = {};
         // When filtering by owner (profile page), show all. Otherwise only available
@@ -43,6 +45,14 @@ export class ItemsService {
 
         if (query.search) {
             filter.$text = { $search: query.search };
+        }
+
+        if (query.province) {
+            filter['location.province'] = { $regex: query.province, $options: 'i' };
+        }
+
+        if (query.district) {
+            filter['location.district'] = { $regex: query.district, $options: 'i' };
         }
 
         if (query.minPrice !== undefined || query.maxPrice !== undefined) {
@@ -66,6 +76,16 @@ export class ItemsService {
             .limit(limit)
             .skip(skip)
             .exec();
+    }
+
+    /**
+     * Returns distinct provinces that have at least one available item
+     */
+    async getDistinctProvinces(): Promise<string[]> {
+        const provinces = await this.itemModel
+            .distinct('location.province', { isAvailable: true })
+            .exec();
+        return (provinces as string[]).filter(Boolean).sort();
     }
 
     async findTrending(limit: number = 10): Promise<Item[]> {

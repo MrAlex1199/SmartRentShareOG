@@ -11,7 +11,6 @@ import Cookies from 'js-cookie';
 
 export default function Home() {
   const router = useRouter();
-  const [items, setItems] = useState<Item[]>([]);
   const [filteredItems, setFilteredItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
@@ -110,12 +109,19 @@ export default function Home() {
     }
   };
 
-  const fetchItems = async () => {
+  const fetchItems = async (search?: string, category?: ItemCategory, province?: string) => {
+    setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items`);
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (category) params.set('category', category);
+      if (province) params.set('province', province);
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/items${params.toString() ? `?${params}` : ''}`
+      );
       if (response.ok) {
         const data = await response.json();
-        setItems(data);
         setFilteredItems(data);
       }
     } catch (error) {
@@ -125,21 +131,8 @@ export default function Home() {
     }
   };
 
-  const handleSearch = (query: string, category?: ItemCategory) => {
-    let filtered = items;
-
-    if (category) {
-      filtered = filtered.filter(item => item.category === category);
-    }
-
-    if (query) {
-      filtered = filtered.filter(item => 
-        item.title.toLowerCase().includes(query.toLowerCase()) ||
-        item.description.toLowerCase().includes(query.toLowerCase())
-      );
-    }
-
-    setFilteredItems(filtered);
+  const handleSearch = (query: string, category?: ItemCategory, province?: string) => {
+    fetchItems(query, category, province);
   };
 
   // Show loading spinner during auth check
