@@ -3,20 +3,31 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Item, ItemDocument } from './schemas/item.schema';
 import { CreateItemDto, UpdateItemDto, ItemCategory } from '@repo/shared';
+import { SearchService } from '../search/search.service';
+
 
 @Injectable()
 export class ItemsService {
     constructor(
         @InjectModel(Item.name) private itemModel: Model<ItemDocument>,
         @InjectModel('Booking') private bookingModel: Model<any>,
+        private readonly searchService: SearchService,
     ) { }
+
 
     async create(createItemDto: CreateItemDto, ownerId: string): Promise<Item> {
         const newItem = new this.itemModel({
             ...createItemDto,
             owner: ownerId,
         });
-        return newItem.save();
+        const saved = await newItem.save();
+        // Sync to OpenSearch (populate owner for indexing)
+        const populated = await this.itemModel
+            .findById(saved._id)
+            .populate('owner', 'displayName pictureUrl')
+            .lean();
+        if (populated) this.searchService.indexItem(populated).catch(() => null);
+        return saved;
     }
 
     async findAll(query: {
@@ -131,7 +142,14 @@ export class ItemsService {
             throw new ForbiddenException('You can only update your own items');
         }
 
-        return this.itemModel.findByIdAndUpdate(id, updateItemDto, { new: true }).exec() as Promise<Item>;
+        const updated = await this.itemModel.findByIdAndUpdate(id, updateItemDto, { new: true }).exec() as unknown as Item;
+        // Sync updated document to OpenSearch
+        const populated = await this.itemModel
+            .findById(id)
+            .populate('owner', 'displayName pictureUrl')
+            .lean();
+        if (populated) this.searchService.indexItem(populated).catch(() => null);
+        return updated;
     }
 
     async remove(id: string, userId: string): Promise<void> {
@@ -145,6 +163,8 @@ export class ItemsService {
         }
 
         await this.itemModel.findByIdAndDelete(id).exec();
+        // Remove from OpenSearch index
+        this.searchService.deleteItem(id).catch(() => null);
     }
 
     /**
@@ -196,6 +216,14 @@ export class ItemsService {
             { isAvailable },
             { new: true },
         );
+        // Sync availability change to OpenSearch
+        if (updated) {
+            const populated = await this.itemModel
+                .findById(itemId)
+                .populate('owner', 'displayName pictureUrl')
+                .lean();
+            if (populated) this.searchService.indexItem(populated).catch(() => null);
+        }
         return { item: updated, message: isAvailable ? 'เปิดรับจองแล้ว' : 'ซ่อนสินค้าแล้ว' };
     }
 

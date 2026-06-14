@@ -109,17 +109,10 @@ export default function Home() {
     }
   };
 
-  const fetchItems = async (search?: string, category?: ItemCategory, province?: string) => {
+  const fetchItems = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      if (category) params.set('category', category);
-      if (province) params.set('province', province);
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/items${params.toString() ? `?${params}` : ''}`
-      );
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/items`);
       if (response.ok) {
         const data = await response.json();
         setFilteredItems(data);
@@ -131,8 +124,16 @@ export default function Home() {
     }
   };
 
-  const handleSearch = (query: string, category?: ItemCategory, province?: string) => {
-    fetchItems(query, category, province);
+  const handleSearch = (filters: any) => {
+    const params = new URLSearchParams();
+    if (filters.q) params.set('q', filters.q);
+    if (filters.category) params.set('category', filters.category);
+    if (filters.province) params.set('province', filters.province);
+    if (filters.minPrice) params.set('minPrice', filters.minPrice.toString());
+    if (filters.maxPrice) params.set('maxPrice', filters.maxPrice.toString());
+    if (filters.condition) params.set('condition', filters.condition);
+
+    router.push(`/search?${params.toString()}`);
   };
 
   // Show loading spinner during auth check

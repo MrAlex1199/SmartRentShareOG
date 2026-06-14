@@ -17,6 +17,7 @@ import { MessagesModule } from './messages/messages.module';
 import { DisputesModule } from './disputes/disputes.module';
 import { AdminModule } from './admin/admin.module';
 import { AuditModule } from './audit/audit.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { AuditModule } from './audit/audit.module';
     DisputesModule,
     AdminModule,
     AuditModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [

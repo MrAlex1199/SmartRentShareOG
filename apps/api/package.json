@@ -19,7 +19,8 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed": "ts-node -r tsconfig-paths/register src/scripts/seed-items.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/scripts/seed-items.ts",
+    "search:reindex": "ts-node -r tsconfig-paths/register src/scripts/reindex-opensearch.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -33,6 +34,7 @@
     "@nestjs/schedule": "^4.0.0",
     "@nestjs/throttler": "^6.5.0",
     "@nestjs/websockets": "^10.0.0",
+    "@opensearch-project/opensearch": "^3.6.0",
     "@repo/shared": "*",
     "@types/multer": "^2.0.0",
     "class-transformer": "^0.5.1",

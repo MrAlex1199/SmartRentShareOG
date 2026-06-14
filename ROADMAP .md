@@ -20,10 +20,12 @@
 - **File Storage**: Cloudinary (รูปภาพ + video)
 - **Real-time**: Socket.io + Redis (notifications & chat)
 - **Payment**: PromptPay QR + Slip Verification
+- **Search Engine**: OpenSearch 2.x (Full-text search, Autocomplete, Faceted search)
 - **Deployment**: 
   - Frontend: Vercel
   - Backend: Railway / Render
   - Database: MongoDB Atlas
+  - Search: Railway (OpenSearch Docker container)
 
 ### Development Tools
 - **Monorepo**: Turborepo
@@ -176,15 +178,17 @@ enum ItemCategory {
   - Video upload support (optional)
 
 #### Week 4: Search & Discovery Features
-- [ ] **Advanced Search System**:
-  - Full-text search with MongoDB Atlas Search
+- [ ] **Basic Search System** (MongoDB `$text` index — interim):
+  - Full-text search (title, description, tags)
   - Category filtering
   - Price range filtering
-  - Location-based filtering
+  - Location-based filtering (province / district)
   - Availability date filtering
+
+  > ⚠️ **Phase 2.5** จะ upgrade ระบบนี้ทั้งหมดด้วย OpenSearch
   
 - [ ] **Discovery Features**:
-  - Trending items
+  - Trending items (sort by views)
   - Recently added
   - Recommended for you (based on previous rentals)
   - Favorites system
@@ -196,8 +200,129 @@ enum ItemCategory {
 
 **Deliverables**:
 - ✅ Complete item management system
-- ✅ Advanced search & filtering
+- ✅ Basic search & filtering (MongoDB)
 - ✅ Media upload & optimization
+
+---
+
+### Phase 2.5: OpenSearch Integration — Enhanced Search Engine ⭐⭐⭐⭐⭐
+
+> **🆕 ADDED (Jun 2026)** — ยกระดับระบบค้นหาจาก MongoDB `$text` → OpenSearch เต็มรูปแบบ
+
+**เป้าหมาย**: สร้าง search experience ระดับ production-grade ด้วย OpenSearch 2.x
+
+#### Infrastructure Setup
+- [ ] **Docker Compose (Local Dev)**:
+  - เพิ่ม `opensearchproject/opensearch:2` service
+  - เพิ่ม `opensearch-dashboards:2` service (port 5601)
+  - ตั้งค่า `DISABLE_SECURITY_PLUGIN=true` สำหรับ local
+  - Persistent volume สำหรับ index data
+
+- [ ] **Railway Deployment (Production)**:
+  - สร้าง Railway service จาก OpenSearch Docker image
+  - ตั้งค่า Security plugin (username/password)
+  - Persistent disk storage
+  - Environment variables: `OPENSEARCH_NODE`, `OPENSEARCH_USERNAME`, `OPENSEARCH_PASSWORD`
+
+#### Backend — NestJS SearchModule
+- [ ] **SearchModule** (`src/search/`):
+  - `SearchModule` — NestJS module, inject `@opensearch-project/opensearch` client
+  - `SearchService` — core search logic:
+    - `indexItem(item)` — index/update document
+    - `deleteItem(id)` — remove document
+    - `searchItems(query)` — full-text + filters + aggregations
+    - `suggest(prefix)` — autocomplete suggestions
+    - `reindexAll()` — admin bulk reindex จาก MongoDB
+  - `SearchController` — expose REST endpoints:
+    ```
+    GET /search/items?q=&category=&minPrice=&maxPrice=&province=&sort=&page=&limit=
+    GET /search/suggest?q=
+    POST /search/reindex   (Admin only)
+    ```
+  - `SearchSyncService` — MongoDB Change Streams → OpenSearch real-time sync
+
+- [ ] **OpenSearch Index Mapping**:
+  ```json
+  {
+    "mappings": {
+      "properties": {
+        "title":       { "type": "text", "analyzer": "thai" },
+        "description": { "type": "text", "analyzer": "thai" },
+        "tags":        { "type": "keyword" },
+        "category":    { "type": "keyword" },
+        "condition":   { "type": "keyword" },
+        "dailyPrice":  { "type": "float" },
+        "isAvailable": { "type": "boolean" },
+        "province":    { "type": "keyword" },
+        "district":    { "type": "keyword" },
+        "views":       { "type": "integer" },
+        "createdAt":   { "type": "date" }
+      }
+    }
+  }
+  ```
+
+- [ ] **ItemsService Integration**:
+  - เรียก `searchService.indexItem()` หลัง create / update
+  - เรียก `searchService.deleteItem()` หลัง remove
+  - Fallback กลับ MongoDB ถ้า OpenSearch down
+
+#### Search Features ที่ได้จาก OpenSearch
+- [ ] **Full-text Search ภาษาไทย** — Thai analyzer built-in
+- [ ] **Fuzzy / Typo Tolerance** — ค้น "โนตบุ๊ค" เจอ "โน้ตบุ๊ค"
+- [ ] **Autocomplete Suggestions** — แสดง dropdown ขณะพิมพ์
+- [ ] **Relevance Scoring** — ผลลัพธ์เรียงตามความเกี่ยวข้อง ไม่ใช่แค่ date
+- [ ] **Faceted Search** — แสดง count ของแต่ละ filter (Electronics (42), Books (18), ...)
+- [ ] **Highlighted Snippets** — highlight คำที่ค้นในผลลัพธ์
+- [ ] **"Did you mean?"** — แนะนำคำค้นที่ถูกต้อง
+
+#### Frontend Search Upgrade
+- [ ] **Autocomplete Component**:
+  - Debounced input → `GET /search/suggest?q=`
+  - Dropdown แสดง top 5 suggestions
+  - Keyboard navigation (↑↓ arrows)
+- [ ] **Facet Panel**:
+  - แสดง category counts ข้างๆ filter
+  - Real-time update เมื่อ filter เปลี่ยน
+- [ ] **Search Results Enhancement**:
+  - Highlighted match text
+  - Relevance score badge (ถ้าต้องการ)
+  - "แสดงผล X รายการจาก Y ทั้งหมด"
+
+#### MongoDB Change Streams Sync Flow
+```
+MongoDB Atlas (items collection)
+        │ Change Stream
+        ▼
+  SearchSyncService (NestJS)
+        │ upsert / delete
+        ▼
+  OpenSearch Index (items)
+        │ always in sync
+        ▼
+  GET /search/items → real-time results
+```
+
+**Dependencies**:
+```bash
+npm install @opensearch-project/opensearch  # apps/api only
+```
+
+**Deliverables**:
+- ✅ OpenSearch cluster running (local + production)
+- ✅ SearchModule พร้อม full-text, fuzzy, facets
+- ✅ Real-time sync จาก MongoDB via Change Streams
+- ✅ Autocomplete UI component
+- ✅ Faceted filter panel
+- ✅ Admin reindex endpoint
+- ✅ Fallback กลับ MongoDB ถ้า OpenSearch unavailable
+- [x] **เพิ่ม OpenSearch / Elasticsearch สำหรับการค้นหาขั้นสูง** (Full-text search, Prefix match, Aggregations, Filter)
+  - [x] Backend: Sync MongoDB `items` collection to OpenSearch via Change Streams
+  - [x] Backend: `SearchService` with `multi_match`, autocomplete, and faceted search
+  - [x] Frontend: `SearchBar` component with live autocomplete and advanced filters
+  - [x] Frontend: `/search` Results Page with OpenSearch integration
+
+---
 
 ### Phase 3: Booking Engine & Availability Management (สัปดาห์ 5-6) ⭐⭐⭐⭐⭐
 
@@ -510,10 +635,12 @@ Platform GP:   ฿100  (10% ของค่าเช่า ฿1,000 เท่า
   - Service Worker for offline support
   
 - [ ] **Backend Optimization**:
-  - Database indexing strategy
+  - Database indexing strategy (MongoDB)
   - Query optimization
   - Caching with Redis
   - API rate limiting
+  - OpenSearch index tuning (shard/replica settings สำหรับ production)
+  - Search query performance profiling ด้วย OpenSearch Profile API
 
 - [ ] **Monitoring & Analytics**:
   - Performance monitoring with Sentry
@@ -577,10 +704,11 @@ Platform GP:   ฿100  (10% ของค่าเช่า ฿1,000 เท่า
 ## 🚀 Future Enhancements (Post-Launch)
 
 ### Phase 8: Advanced Features
-- [ ] **AI-Powered Recommendations**
-- [ ] **Dynamic Pricing Algorithm**
-- [ ] **Multi-language Support**
-- [ ] **Advanced Analytics Dashboard**
+- [ ] **AI-Powered Recommendations** — ใช้ OpenSearch k-NN vector search สำหรับ item similarity
+- [ ] **Dynamic Pricing Algorithm** — วิเคราะห์ demand จาก OpenSearch aggregations
+- [ ] **Multi-language Support** — เพิ่ม language analyzer ใน OpenSearch (EN/TH)
+- [ ] **Advanced Analytics Dashboard** — Aggregation queries จาก OpenSearch + ClickHouse
+- [ ] **ClickHouse Integration** — Event analytics (DAU/MAU, revenue, booking trends)
 
 ### Phase 9: Ecosystem Expansion
 - [ ] **Mobile Native Apps** (React Native)
@@ -618,5 +746,57 @@ Platform GP:   ฿100  (10% ของค่าเช่า ฿1,000 เท่า
 
 ---
 
-*Last Updated: February 2026*
-*Version: 2.0*
+## 🔍 Search Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    SmartRentShare                        │
+├──────────────────┬──────────────────────────────────────┤
+│  MongoDB Atlas   │  Primary store: users, bookings,     │
+│                  │  payments, messages, reviews, items  │
+├──────────────────┼──────────────────────────────────────┤
+│  OpenSearch 2.x  │  Search index: items full-text,      │
+│  (Phase 2.5+)    │  autocomplete, facets, geo, Thai NLP │
+│                  │  Sync: MongoDB Change Streams (CDC)  │
+├──────────────────┼──────────────────────────────────────┤
+│  Redis           │  Cache: sessions, rate limits,       │
+│                  │  real-time pub/sub (Socket.io)       │
+├──────────────────┼──────────────────────────────────────┤
+│  ClickHouse      │  Analytics: events, revenue trends,  │
+│  (Phase 8+)      │  DAU/MAU, pricing history            │
+└──────────────────┴──────────────────────────────────────┘
+```
+
+### OpenSearch Query Example
+```json
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "multi_match": {
+            "query": "โน้ตบุ๊ค",
+            "fields": ["title^3", "description", "tags^2"],
+            "fuzziness": "AUTO"
+        }}
+      ],
+      "filter": [
+        { "term":  { "isAvailable": true }},
+        { "term":  { "category": "electronics" }},
+        { "range": { "dailyPrice": { "gte": 100, "lte": 500 }}}
+      ]
+    }
+  },
+  "aggs": {
+    "by_category": { "terms": { "field": "category" }},
+    "price_range":  { "stats": { "field": "dailyPrice" }}
+  },
+  "highlight": {
+    "fields": { "title": {}, "description": {} }
+  }
+}
+```
+
+---
+
+*Last Updated: June 2026*
+*Version: 3.0 — Added OpenSearch Integration (Phase 2.5)*
