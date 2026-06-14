@@ -308,6 +308,12 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
     };
 
     try {
+      // First try OpenSearch if it's healthy
+      const isHealthy = await this.isHealthy();
+      if (!isHealthy) {
+        throw new Error('OpenSearch is unavailable, using MongoDB fallback');
+      }
+
       const response = await this.client.search({
         index: this.indexName,
         body: {
@@ -357,8 +363,62 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         } : undefined,
       };
     } catch (err: any) {
-      this.logger.error(`OpenSearch search failed: ${err.message}`);
-      // Return empty result on failure — caller can fallback to MongoDB
+      this.logger.warn(`OpenSearch search failed or unavailable, falling back to MongoDB: ${err.message}`);
+      return this.fallbackSearchToMongo(params);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // MongoDB Fallback Implementation
+  // ──────────────────────────────────────────────────────────────
+
+  private async fallbackSearchToMongo(params: any): Promise<SearchResult> {
+    const { q, category, minPrice, maxPrice, province, condition, sort, page = 1, limit = 20 } = params;
+    const skip = (page - 1) * limit;
+
+    const matchStage: any = { isAvailable: true };
+
+    if (q && q.trim()) {
+      // Use regex for partial matching on title or description
+      const regex = new RegExp(q.trim(), 'i');
+      matchStage.$or = [{ title: regex }, { description: regex }];
+    }
+    if (category) matchStage.category = category;
+    if (condition) matchStage.condition = condition;
+    if (province) matchStage['location.province'] = province;
+
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      matchStage.dailyPrice = {};
+      if (minPrice !== undefined) matchStage.dailyPrice.$gte = Number(minPrice);
+      if (maxPrice !== undefined) matchStage.dailyPrice.$lte = Number(maxPrice);
+    }
+
+    let sortStage: any = { createdAt: -1 };
+    switch (sort) {
+      case 'price-asc': sortStage = { dailyPrice: 1 }; break;
+      case 'price-desc': sortStage = { dailyPrice: -1 }; break;
+      case 'newest': sortStage = { createdAt: -1 }; break;
+      case 'popular': sortStage = { views: -1 }; break;
+    }
+
+    try {
+      const [items, totalCount] = await Promise.all([
+        this.itemModel.find(matchStage).populate('owner', 'displayName pictureUrl').sort(sortStage).skip(skip).limit(Number(limit)).lean(),
+        this.itemModel.countDocuments(matchStage)
+      ]);
+
+      return {
+        total: totalCount,
+        items: items.map(item => ({ ...this.toDoc(item), _id: item._id.toString() })) as any[],
+        // Simple aggregations fallback (can be expanded if needed)
+        aggregations: {
+          byCategory: [],
+          priceStats: { min: 0, max: 0, avg: 0 },
+          byProvince: []
+        }
+      };
+    } catch (error) {
+      this.logger.error(`MongoDB fallback search failed: ${error}`);
       return { total: 0, items: [] };
     }
   }
@@ -370,6 +430,12 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   async suggest(prefix: string): Promise<string[]> {
     if (!prefix || prefix.trim().length < 1) return [];
     try {
+      // First try OpenSearch if it's healthy
+      const isHealthy = await this.isHealthy();
+      if (!isHealthy) {
+        throw new Error('OpenSearch is unavailable, using MongoDB fallback');
+      }
+
       const response = await this.client.search({
         index: this.indexName,
         body: {
@@ -398,7 +464,25 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         .filter((title: string) => title.toLowerCase().includes(prefix.toLowerCase()))
         .slice(0, 5);
     } catch (err: any) {
-      this.logger.warn(`Suggest failed: ${err.message}`);
+      this.logger.warn(`Suggest failed or unavailable, falling back to MongoDB: ${err.message}`);
+      return this.fallbackSuggestToMongo(prefix);
+    }
+  }
+
+  private async fallbackSuggestToMongo(prefix: string): Promise<string[]> {
+    try {
+      const regex = new RegExp(`^${prefix.trim()}`, 'i');
+      const items = await this.itemModel
+        .find({ isAvailable: true, title: regex })
+        .select('title')
+        .limit(10)
+        .lean()
+        .exec();
+
+      const uniqueTitles = Array.from(new Set(items.map(i => i.title)));
+      return uniqueTitles.slice(0, 5);
+    } catch (error) {
+      this.logger.error(`MongoDB fallback suggest failed: ${error}`);
       return [];
     }
   }
