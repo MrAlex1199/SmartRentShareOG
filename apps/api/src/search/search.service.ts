@@ -53,7 +53,7 @@ export interface SearchResult {
 @Injectable()
 export class SearchService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SearchService.name);
-  private client: Client;
+  private client?: Client;
   private readonly indexName: string;
 
   constructor(
@@ -88,7 +88,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleDestroy() {
     if (this.client) {
-      await this.client.close();
+      await this.client!.close();
     }
   }
 
@@ -102,13 +102,13 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   private async ensureIndex(): Promise<void> {
     if (!this.client) return;
     try {
-      const exists = await this.client.indices.exists({ index: this.indexName });
+      const exists = await this.client!.indices.exists({ index: this.indexName });
       if (exists.body) {
         this.logger.log(`OpenSearch index "${this.indexName}" already exists`);
         return;
       }
 
-      await this.client.indices.create({
+      await this.client!.indices.create({
         index: this.indexName,
         body: {
           settings: {
@@ -206,7 +206,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       const doc = this.toDoc(item);
       const id = item._id?.toString() ?? item.id?.toString();
 
-      await this.client.index({
+      await this.client!.index({
         index: this.indexName,
         id,
         body: doc,
@@ -225,7 +225,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
   async deleteItem(id: string): Promise<void> {
     if (!this.client) return;
     try {
-      await this.client.delete({
+      await this.client!.delete({
         index: this.indexName,
         id,
         refresh: 'wait_for',
@@ -331,7 +331,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         throw new Error('OpenSearch is unavailable, using MongoDB fallback');
       }
 
-      const response = await this.client.search({
+      const response = await this.client!.search({
         index: this.indexName,
         body: {
           from,
@@ -434,9 +434,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           byProvince: []
         }
       };
-    } catch (error) {
-      this.logger.error(`MongoDB fallback search failed: ${error}`);
-      return { total: 0, items: [] };
+    } catch (error: any) {
+      this.logger.error(`MongoDB fallback search failed: ${error.message} - Stack: ${error.stack}`);
+      throw error;
     }
   }
 
@@ -453,7 +453,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         throw new Error('OpenSearch is unavailable, using MongoDB fallback');
       }
 
-      const response = await this.client.search({
+      const response = await this.client!.search({
         index: this.indexName,
         body: {
           size: 0,
@@ -515,9 +515,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
 
     try {
       // Delete and recreate index for clean reindex
-      const exists = await this.client.indices.exists({ index: this.indexName });
+      const exists = await this.client!.indices.exists({ index: this.indexName });
       if (exists.body) {
-        await this.client.indices.delete({ index: this.indexName });
+        await this.client!.indices.delete({ index: this.indexName });
         this.logger.log(`Deleted existing index "${this.indexName}"`);
       }
       await this.ensureIndex();
@@ -547,7 +547,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
           this.toDoc(item),
         ]);
 
-        const bulkResponse = await this.client.bulk({ body, refresh: true });
+        const bulkResponse = await this.client!.bulk({ body, refresh: true });
 
         if (bulkResponse.body.errors) {
           const errorItems = bulkResponse.body.items.filter((i: any) => i.index?.error);
@@ -575,7 +575,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
    */
   async isHealthy(): Promise<boolean> {
     try {
-      const response = await this.client.cluster.health({ timeout: '5s' });
+      const response = await this.client!.cluster.health({ timeout: '5s' });
       return ['green', 'yellow'].includes(response.body.status);
     } catch {
       return false;
