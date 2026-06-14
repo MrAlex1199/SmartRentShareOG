@@ -28,9 +28,13 @@ export function useSocket(): UseSocketReturn {
         const token = Cookies.get('token');
         if (!token) return;
 
-        // Force http:// — wss:// fails on localhost without SSL cert
         const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-        const apiUrl = rawUrl.replace('/api', '').replace('https://', 'http://');
+        let apiUrl = rawUrl.replace('/api', '');
+        
+        // Auto-upgrade to https if the page is loaded over https (fixes Mixed Content on Vercel)
+        if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+            apiUrl = apiUrl.replace('http://', 'https://');
+        }
 
         const socket = io(apiUrl, {
             auth: { token },

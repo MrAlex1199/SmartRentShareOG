@@ -108,7 +108,10 @@ export default function ChatPage() {
     if (!token) return;
 
     const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const apiBase = rawUrl.replace('/api', '').replace('https://', 'http://');
+    let apiBase = rawUrl.replace('/api', '');
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      apiBase = apiBase.replace('http://', 'https://');
+    }
     const socket: Socket = io(apiBase, {
       auth: { token },
       transports: ['polling', 'websocket'],

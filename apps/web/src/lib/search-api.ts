@@ -4,7 +4,10 @@
  * Falls back gracefully when the API is unavailable
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+let API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    API_URL = API_URL.replace('http://', 'https://');
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
