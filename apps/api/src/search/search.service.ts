@@ -70,15 +70,26 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       clientOptions.auth = { username, password };
     }
 
-    this.client = new Client(clientOptions);
+    try {
+      // Validate URL format first
+      new URL(node);
+      this.client = new Client(clientOptions);
+    } catch (err: any) {
+      this.logger.warn(`Failed to initialize OpenSearch client (Invalid URL: ${node}). Search will operate in MongoDB fallback mode. Error: ${err.message}`);
+      // this.client remains undefined
+    }
   }
 
   async onModuleInit() {
-    await this.ensureIndex();
+    if (this.client) {
+      await this.ensureIndex();
+    }
   }
 
   async onModuleDestroy() {
-    await this.client.close();
+    if (this.client) {
+      await this.client.close();
+    }
   }
 
   // ──────────────────────────────────────────────────────────────
@@ -89,6 +100,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
    * Create the items index with proper mappings if it does not exist
    */
   private async ensureIndex(): Promise<void> {
+    if (!this.client) return;
     try {
       const exists = await this.client.indices.exists({ index: this.indexName });
       if (exists.body) {
@@ -189,6 +201,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
    * Index (create or update) a single item
    */
   async indexItem(item: any): Promise<void> {
+    if (!this.client) return;
     try {
       const doc = this.toDoc(item);
       const id = item._id?.toString() ?? item.id?.toString();
@@ -210,6 +223,7 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
    * Delete a document from the index
    */
   async deleteItem(id: string): Promise<void> {
+    if (!this.client) return;
     try {
       await this.client.delete({
         index: this.indexName,
@@ -223,6 +237,9 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
       }
     }
   }
+
+  // ... (Search methods remain largely the same, they already check isHealthy())
+
 
   // ──────────────────────────────────────────────────────────────
   // Search
